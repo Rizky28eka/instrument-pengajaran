@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { SEMUA_INDIKATOR } from '@/data/instrumen'
+import { INSTRUMEN_AKTIF, semuaIndikator } from '@/data/instrumen'
 import { hitungRingkasan } from '@/lib/scoring'
 import type { Supervisi } from './api'
 import { toCsv } from './csv'
 
 function contoh(catatan: string): Supervisi {
-  const skor = Object.fromEntries(SEMUA_INDIKATOR.map((i) => [i.id, 3]))
+  const skor = Object.fromEntries(semuaIndikator(INSTRUMEN_AKTIF).map((i) => [i.id, 3]))
   return {
     id: 'x',
     identitas: {
@@ -21,7 +21,8 @@ function contoh(catatan: string): Supervisi {
     skor,
     catatanAspek: {},
     catatan: { kekuatan: catatan, perbaikan: '', rekomendasi: '' },
-    ringkasan: hitungRingkasan(skor),
+    instrumen: INSTRUMEN_AKTIF,
+    ringkasan: hitungRingkasan(skor, INSTRUMEN_AKTIF),
     createdBy: 'u',
     createdByName: 'u',
     createdAt: null,

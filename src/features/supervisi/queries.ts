@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { Instrumen } from '@/data/instrumen'
 import { useAuth } from '@/features/auth/auth-context'
 import { createSupervisi, deleteSupervisi, getSupervisi, listSupervisi, updateSupervisi } from './api'
 import type { SupervisiFormValues } from './schema'
@@ -25,9 +26,10 @@ export function useSaveSupervisi() {
   const qc = useQueryClient()
   const { user } = useAuth()
   return useMutation({
-    mutationFn: async ({ id, values }: { id?: string; values: SupervisiFormValues }) => {
+    mutationFn: async ({ id, values, instrumen }: { id?: string; values: SupervisiFormValues; instrumen?: Instrumen }) => {
       if (id) {
-        await updateSupervisi(id, values)
+        if (!instrumen) throw new Error('Instrumen dokumen tidak diketahui.')
+        await updateSupervisi(id, values, instrumen)
         return id
       }
       if (!user) throw new Error('Sesi login berakhir, silakan masuk kembali.')

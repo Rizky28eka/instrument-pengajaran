@@ -28,7 +28,11 @@ function hitungStatistik(data: Supervisi[]) {
     guru: new Set(data.map((d) => d.identitas.namaGuru.trim().toLowerCase())).size,
     rata: rataRata(data.map((d) => d.ringkasan.nilai)),
     bulanIni: data.filter((d) => d.identitas.tanggal.startsWith(bulanIni)).length,
-    perAspek: ASPEK.map((a) => ({ aspek: a, nilai: rataRata(data.map((d) => d.ringkasan.perAspek[a.id].nilai)) })),
+    // Aspek dicocokkan lewat id; dokumen dari versi instrumen lain yang tak memuat aspek itu dilewati.
+    perAspek: ASPEK.map((a) => ({
+      aspek: a,
+      nilai: rataRata(data.flatMap((d) => (d.ringkasan.perAspek[a.id] ? [d.ringkasan.perAspek[a.id].nilai] : []))),
+    })),
     distribusi: PREDIKAT.map((p) => ({ predikat: p, jumlah: data.filter((d) => d.ringkasan.predikat === p).length })),
     perluPendampingan: data.filter((d) => d.ringkasan.predikat === 'Cukup' || d.ringkasan.predikat === 'Perlu Perbaikan'),
   }
