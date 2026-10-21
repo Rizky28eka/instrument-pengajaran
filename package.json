@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "typecheck": "tsc -b",
     "preview": "vite preview",
-    "lint": "oxlint src"
+    "lint": "oxlint src",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -19,7 +21,8 @@
     "oxlint": "^1.89.0",
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
-    "vite": "^8.3.5"
+    "vite": "^8.3.5",
+    "vitest": "^5.0.5"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",
