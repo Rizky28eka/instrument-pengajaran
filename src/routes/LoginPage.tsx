@@ -9,6 +9,8 @@ import { daftarEmail, masukEmail, masukGoogle, pesanError } from '@/features/aut
 import { useAuth } from '@/features/auth/auth-context'
 import { cn } from '@/lib/utils'
 
+const TAHUN = new Date().getFullYear()
+
 const FITUR = [
   { icon: ClipboardCheck, teks: 'Instrumen 5 aspek dengan skala 1–4 sesuai Kurikulum Merdeka' },
   { icon: LineChart, teks: 'Skor, nilai, dan predikat dihitung otomatis' },
@@ -92,7 +94,7 @@ export default function LoginPage() {
             ))}
           </ul>
         </div>
-        <p className="relative text-xs text-brand-200/70">© {new Date().getFullYear()} · Kurikulum Merdeka</p>
+        <p className="relative text-xs text-brand-200/70">© {TAHUN} · Kurikulum Merdeka</p>
       </div>
 
       <div className="flex items-center justify-center px-4 py-12 sm:px-8">

@@ -10,4 +10,8 @@ export default defineConfig({
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },
+  build: {
+    // SDK Firebase (~220 kB gzip) mendominasi bundle dan tidak bisa dipangkas lebih jauh.
+    chunkSizeWarningLimit: 800,
+  },
 })

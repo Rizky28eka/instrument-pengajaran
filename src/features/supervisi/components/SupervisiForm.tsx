@@ -35,14 +35,16 @@ export function SupervisiForm({ defaultValues, onSubmit, submitLabel, draftKey }
 
   useEffect(() => {
     if (!draftKey) return
-    const sub = form.watch((v) => {
-      try {
-        localStorage.setItem(draftKey, JSON.stringify(v))
-      } catch {
-        /* penyimpanan penuh / diblokir — draf diabaikan */
-      }
+    return form.subscribe({
+      formState: { values: true },
+      callback: ({ values }) => {
+        try {
+          localStorage.setItem(draftKey, JSON.stringify(values))
+        } catch {
+          /* penyimpanan penuh / diblokir — draf diabaikan */
+        }
+      },
     })
-    return () => sub.unsubscribe()
   }, [form, draftKey])
 
   function pindah(i: number) {
