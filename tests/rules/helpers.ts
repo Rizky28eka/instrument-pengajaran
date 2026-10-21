@@ -129,6 +129,23 @@ export const anonim = () => modular(env.unauthenticatedContext().firestore())
 
 // ------------------------------------------------------------------ pembangun dokumen
 
+/** Snapshot instrumen minimal yang sah (3 indikator A1–A3). */
+export const SNAPSHOT_UJI = {
+  versi: 'uji-1',
+  nama: 'Uji',
+  status: 'provisional',
+  ambang: [
+    { predikat: 'Sangat Baik', min: 90 },
+    { predikat: 'Perlu Perbaikan', min: 0 },
+  ],
+  aspek: [
+    {
+      id: 'A', kode: 'A', judul: 'Aspek A', deskripsi: '',
+      kelompok: [{ indikator: [{ id: 'A1', teks: 'Indikator 1' }, { id: 'A2', teks: 'Indikator 2' }, { id: 'A3', teks: 'Indikator 3' }] }],
+    },
+  ],
+}
+
 export function isiSupervisi(schoolId: string, guruId: string, guruNama: string) {
   return {
     schoolId,
@@ -149,7 +166,7 @@ export function isiSupervisi(schoolId: string, guruId: string, guruNama: string)
     catatan: { kekuatan: 'baik', perbaikan: '', rekomendasi: '' },
     ringkasan: { total: 11, maks: 12, nilai: 91.67, predikat: 'Sangat Baik', terisi: 3, jumlah: 3, perAspek: {} },
     versiInstrumen: 'uji-1',
-    instrumen: { versi: 'uji-1', nama: 'Uji', status: 'provisional', ambang: [], aspek: [] },
+    instrumen: SNAPSHOT_UJI,
   }
 }
 

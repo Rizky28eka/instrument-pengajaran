@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { FormProvider, useForm, useWatch, type Control } from 'react-hook-form'
+import { useBlocker } from 'react-router'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Check, ChevronLeft, ChevronRight, Save } from 'lucide-react'
 import type { Instrumen } from '@/data/instrumen'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { InstrumenNotice } from '@/components/ui/InstrumenNotice'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { hitungRingkasan } from '@/lib/scoring'
@@ -22,11 +24,14 @@ interface Props {
   defaultValues: SupervisiFormInput
   onSubmit: (values: SupervisiFormValues) => Promise<void>
   submitLabel: string
-  /** Bila diisi, isian disimpan otomatis ke localStorage sebagai draf. */
-  draftKey?: string
+  /** Dipanggil setiap isian berubah — dipakai halaman "baru" untuk menyimpan draf lokal. */
+  onDraf?: (values: SupervisiFormInput) => void
+  /** Mode ubah: guru dikunci dan meninggalkan halaman dengan perubahan belum tersimpan diperingatkan. */
+  guruTetap?: { id: string; nama: string }
+  peringatiPerubahan?: boolean
 }
 
-export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel, draftKey }: Props) {
+export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel, onDraf, guruTetap, peringatiPerubahan }: Props) {
   const schema = useMemo(() => buatSupervisiSchema(instrumen), [instrumen])
   const daftarLangkah = useMemo(() => buatLangkah(instrumen), [instrumen])
   const form = useForm<SupervisiFormInput, unknown, SupervisiFormValues>({
@@ -39,18 +44,27 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
   const terakhir = step === daftarLangkah.length - 1
 
   useEffect(() => {
-    if (!draftKey) return
-    return form.subscribe({
-      formState: { values: true },
-      callback: ({ values }) => {
-        try {
-          localStorage.setItem(draftKey, JSON.stringify(values))
-        } catch {
-          /* penyimpanan penuh / diblokir — draf diabaikan */
-        }
-      },
-    })
-  }, [form, draftKey])
+    if (!onDraf) return
+    return form.subscribe({ formState: { values: true }, callback: ({ values }) => onDraf(values as SupervisiFormInput) })
+  }, [form, onDraf])
+
+  // Peringatan perubahan belum tersimpan (hanya mode ubah): navigasi dalam aplikasi dan tutup tab.
+  const { isDirty } = form.formState
+  const [selesai, setSelesai] = useState(false)
+  const perluPeringatan = !!peringatiPerubahan && isDirty && !selesai
+  const blocker = useBlocker(
+    ({ currentLocation, nextLocation }) => !!peringatiPerubahan && isDirty && currentLocation.pathname !== nextLocation.pathname,
+  )
+  // Setelah berhasil menyimpan, navigasi yang sempat tertahan diteruskan tanpa bertanya.
+  useEffect(() => {
+    if (selesai && blocker.state === 'blocked') blocker.proceed()
+  }, [selesai, blocker])
+  useEffect(() => {
+    if (!perluPeringatan) return
+    const cegah = (ev: BeforeUnloadEvent) => ev.preventDefault()
+    window.addEventListener('beforeunload', cegah)
+    return () => window.removeEventListener('beforeunload', cegah)
+  }, [perluPeringatan])
 
   function pindah(i: number) {
     setStep(i)
@@ -66,7 +80,7 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
   const submit = form.handleSubmit(
     async (values) => {
       await onSubmit(values)
-      if (draftKey) localStorage.removeItem(draftKey)
+      setSelesai(true) // sudah tersimpan: navigasi setelah ini tidak perlu diperingatkan
     },
     (errors) => {
       const i = langkahDenganError(daftarLangkah, instrumen, errors)
@@ -94,7 +108,7 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
           </div>
 
           <div key={langkah.id} className="animate-fade-in px-5 py-6 sm:px-6">
-            {langkah.id === 'identitas' && <IdentitasStep />}
+            {langkah.id === 'identitas' && <IdentitasStep guruTetap={guruTetap} />}
             {aspek && <AspekStep aspek={aspek} />}
             {langkah.id === 'catatan' && <CatatanStep instrumen={instrumen} />}
           </div>
@@ -114,6 +128,18 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
             )}
           </div>
         </Card>
+
+        <ConfirmDialog
+          open={blocker.state === 'blocked' && !selesai}
+          judul="Tinggalkan halaman ini?"
+          labelYa="Tinggalkan, buang perubahan"
+          varian="danger"
+          labelBatal="Tetap di sini"
+          onYa={() => blocker.state === 'blocked' && blocker.proceed()}
+          onBatal={() => blocker.state === 'blocked' && blocker.reset()}
+        >
+          <p>Perubahan yang belum disimpan akan hilang.</p>
+        </ConfirmDialog>
 
         <PanelLangkah control={form.control} instrumen={instrumen} daftarLangkah={daftarLangkah} step={step} onPilih={pindah} />
       </form>

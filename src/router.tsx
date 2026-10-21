@@ -2,7 +2,7 @@ import type { ComponentType } from 'react'
 import { createBrowserRouter } from 'react-router'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { FullPageLoader } from '@/components/ui/Spinner'
-import { RequireAuth } from '@/features/auth/RequireAuth'
+import { RequireAkses } from '@/features/auth/RequireAkses'
 import { ErrorPage } from '@/routes/ErrorPage'
 
 /** Code-splitting per halaman. */
@@ -15,8 +15,11 @@ export const router = createBrowserRouter([
     children: [
       { index: true, lazy: page(() => import('@/routes/LandingPage')) },
       { path: 'login', lazy: page(() => import('@/routes/LoginPage')) },
+      { path: 'verifikasi-email', lazy: page(() => import('@/routes/VerifikasiEmailPage')) },
+      { path: 'aktivasi', lazy: page(() => import('@/routes/AktivasiPage')) },
+      { path: 'akses-ditolak', lazy: page(() => import('@/routes/AksesDitolakPage')) },
       {
-        Component: RequireAuth,
+        Component: RequireAkses,
         children: [
           {
             Component: AppLayout,
@@ -29,6 +32,7 @@ export const router = createBrowserRouter([
                   { path: 'supervisi/baru', lazy: page(() => import('@/routes/SupervisiFormPage')) },
                   { path: 'supervisi/:id', lazy: page(() => import('@/routes/SupervisiDetailPage')) },
                   { path: 'supervisi/:id/edit', lazy: page(() => import('@/routes/SupervisiFormPage')) },
+                  { path: 'guru', lazy: page(() => import('@/routes/GuruPage')) },
                   { path: 'instrumen', lazy: page(() => import('@/routes/InstrumenPage')) },
                   { path: '*', Component: ErrorPage },
                 ],

@@ -3,6 +3,7 @@ import { GraduationCap, Plus } from 'lucide-react'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { PREDIKAT_STYLE } from '@/components/ui/predikat-style'
 import { ASPEK, SEMUA_INDIKATOR, SKALA } from '@/data/instrumen'
+import { rutePerStatus } from '@/features/auth/akses'
 import { useAuth } from '@/features/auth/auth-context'
 import { ObservationSheet } from '@/features/landing/ObservationSheet'
 import { BATAS_PREDIKAT, predikatDari } from '@/lib/scoring'
@@ -60,9 +61,10 @@ function Brand({ terang }: { terang?: boolean }) {
 }
 
 export default function LandingPage() {
-  const { user } = useAuth()
-  const masuk = user ? '/dashboard' : '/login'
-  const labelMasuk = user ? 'Buka dashboard' : 'Mulai supervisi'
+  const { status } = useAuth()
+  const aktif = status === 'aktif'
+  const masuk = rutePerStatus(status) ?? '/login'
+  const labelMasuk = aktif ? 'Buka dashboard' : status === 'anonim' || status === 'memuat' ? 'Mulai supervisi' : 'Lanjutkan'
 
   return (
     <div className="min-h-svh bg-page font-text text-ink">
@@ -85,7 +87,7 @@ export default function LandingPage() {
             to={masuk}
             className={cn('inline-flex h-10 items-center rounded-lg px-4 text-sm font-semibold text-white ring-1 ring-inset ring-white/45 transition-colors hover:bg-white/10', fokusTerang)}
           >
-            {user ? 'Buka dashboard' : 'Masuk'}
+            {aktif ? 'Buka dashboard' : status === 'anonim' || status === 'memuat' ? 'Masuk' : 'Lanjutkan'}
           </Link>
         </div>
       </header>

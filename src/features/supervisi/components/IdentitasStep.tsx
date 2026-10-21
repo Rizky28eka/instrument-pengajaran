@@ -1,29 +1,77 @@
+import { Link } from 'react-router'
 import { useFormContext, useWatch } from 'react-hook-form'
 import { Field, Input, Select } from '@/components/ui/Field'
+import { useGuruList } from '@/features/guru/queries'
+import { useSekolah } from '@/features/sekolah/queries'
 import { cn } from '@/lib/utils'
 import { KURIKULUM, MODEL_PEMBELAJARAN, type SupervisiFormInput } from '../schema'
 
-export function IdentitasStep() {
+/** `guruTetap`: pada mode ubah, guru tidak dapat diganti (identitas dokumen dikunci oleh Rules). */
+export function IdentitasStep({ guruTetap }: { guruTetap?: { id: string; nama: string } }) {
   const {
     register,
     control,
+    getValues,
+    setValue,
     formState: { errors },
   } = useFormContext<SupervisiFormInput>()
   const e = errors.identitas
   const kurikulum = useWatch({ control, name: 'identitas.kurikulum' })
   const model = useWatch({ control, name: 'identitas.modelPembelajaran' })
+  const { data: sekolah } = useSekolah()
+  const guru = useGuruList()
+  const daftar = (guru.data ?? []).filter((g) => g.aktif)
 
   return (
     <div className="grid gap-5 sm:grid-cols-2">
-      <Field label="Nama sekolah" required error={e?.namaSekolah?.message} className="sm:col-span-2">
-        {(p) => <Input {...p} placeholder="SMP Negeri 1 ..." {...register('identitas.namaSekolah')} />}
+      <Field label="Sekolah" className="sm:col-span-2" hint="Sesuai sekolah akun Anda; tidak dapat diubah.">
+        {(p) => <Input {...p} value={sekolah?.nama ?? 'Memuat…'} readOnly className="bg-slate-50" />}
       </Field>
-      <Field label="Nama guru yang disupervisi" required error={e?.namaGuru?.message}>
-        {(p) => <Input {...p} autoComplete="off" {...register('identitas.namaGuru')} />}
+
+      <Field label="Guru yang disupervisi" required error={errors.guruId?.message}>
+        {(p) =>
+          guruTetap ? (
+            <Input {...p} value={guruTetap.nama} readOnly className="bg-slate-50" />
+          ) : (
+            <Select
+              {...p}
+              {...register('guruId', {
+                onChange: (ev) => {
+                  const g = daftar.find((x) => x.id === ev.target.value)
+                  // Mata pelajaran terisi otomatis dari data master, tetapi tetap dapat diubah.
+                  if (g?.mapel && !getValues('identitas.mataPelajaran')) setValue('identitas.mataPelajaran', g.mapel)
+                },
+              })}
+              disabled={guru.isPending}
+            >
+              <option value="">{guru.isPending ? 'Memuat daftar guru…' : 'Pilih guru…'}</option>
+              {daftar.map((g) => (
+                <option key={g.id} value={g.id}>
+                  {g.nama}
+                </option>
+              ))}
+            </Select>
+          )
+        }
       </Field>
       <Field label="Mata pelajaran" required error={e?.mataPelajaran?.message}>
         {(p) => <Input {...p} placeholder="mis. Matematika" {...register('identitas.mataPelajaran')} />}
       </Field>
+
+      {!guruTetap && !guru.isPending && !guru.isError && daftar.length === 0 && (
+        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200 sm:col-span-2">
+          Belum ada guru aktif. <Link to="/guru" className="font-semibold underline">Tambahkan guru</Link> terlebih dahulu.
+        </p>
+      )}
+      {guru.isError && (
+        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200 sm:col-span-2">
+          Daftar guru gagal dimuat.{' '}
+          <button type="button" className="font-semibold underline" onClick={() => void guru.refetch()}>
+            Coba lagi
+          </button>
+        </p>
+      )}
+
       <Field label="Kelas yang disupervisi" required error={e?.kelas?.message}>
         {(p) => <Input {...p} placeholder="mis. VIII B" {...register('identitas.kelas')} />}
       </Field>

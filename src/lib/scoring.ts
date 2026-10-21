@@ -27,14 +27,15 @@ export const skorValid = (v: unknown): v is number =>
  */
 export function predikatDariSkor(total: number, maks: number, ambang: AmbangPredikat[] = INSTRUMEN_AKTIF.ambang): Predikat {
   const urut = [...ambang].sort((a, b) => b.min - a.min)
-  if (maks <= 0) return urut[urut.length - 1].predikat
-  return (urut.find((b) => total * 100 >= b.min * maks) ?? urut[urut.length - 1]).predikat
+  const terendah = urut[urut.length - 1]?.predikat ?? 'Perlu Perbaikan' // ambang kosong tidak boleh melempar
+  if (maks <= 0) return terendah
+  return urut.find((b) => total * 100 >= b.min * maks)?.predikat ?? terendah
 }
 
 /** Predikat dari nilai 0–100 yang sudah jadi (mis. rata-rata di dashboard). */
 export function predikatDari(nilai: number, ambang: AmbangPredikat[] = INSTRUMEN_AKTIF.ambang): Predikat {
   const urut = [...ambang].sort((a, b) => b.min - a.min)
-  return (urut.find((b) => nilai >= b.min) ?? urut[urut.length - 1]).predikat
+  return urut.find((b) => nilai >= b.min)?.predikat ?? urut[urut.length - 1]?.predikat ?? 'Perlu Perbaikan'
 }
 
 export interface SkorAspek {
