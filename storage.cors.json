@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://GANTI-DENGAN-DOMAIN-PRODUKSI.example"],
+    "method": ["GET", "HEAD"],
+    "responseHeader": ["Content-Type", "Authorization", "X-Goog-Resumable"],
+    "maxAgeSeconds": 3600
+  }
+]

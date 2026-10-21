@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
-import { BookOpen, ClipboardList, FilePlus, GraduationCap, LayoutDashboard, ListChecks, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react'
+import { BookOpen, ClipboardList, FilePlus, FolderOpen, GraduationCap, LayoutDashboard, ListChecks, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/auth-context'
 import { useKeluar } from '@/features/auth/useKeluar'
 import { cn } from '@/lib/utils'
@@ -10,6 +10,7 @@ const NAV = [
   { to: '/supervisi', label: 'Data Supervisi', icon: ClipboardList, end: true },
   { to: '/supervisi/baru', label: 'Supervisi Baru', icon: FilePlus, end: true },
   { to: '/tindak-lanjut', label: 'Tindak Lanjut', icon: ListChecks, end: true },
+  { to: '/dokumen', label: 'Dokumen', icon: FolderOpen, end: true },
   { to: '/guru', label: 'Guru', icon: UsersRound, end: true },
   { to: '/pengguna', label: 'Pengguna', icon: ShieldCheck, end: true, adminSaja: true },
   { to: '/instrumen', label: 'Instrumen', icon: BookOpen, end: true },

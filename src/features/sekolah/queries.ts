@@ -6,6 +6,12 @@ import { db } from '@/lib/firebase'
 export interface Sekolah {
   id: string
   nama: string
+  /**
+   * Mengaktifkan kategori dokumen "pengajuan guru" (dengan alur review) untuk sekolah ini.
+   * Diatur pemilik lewat konsol/skrip admin pada `schools/{id}.fitur.pengirimanDokumenGuru` (klien tidak bisa menulis
+   * dokumen sekolah). Bawaan: mati.
+   */
+  pengirimanDokumenGuru: boolean
 }
 
 export function useSekolah() {
@@ -15,7 +21,12 @@ export function useSekolah() {
     staleTime: 10 * 60_000,
     queryFn: async (): Promise<Sekolah> => {
       const snap = await getDoc(doc(db, 'schools', schoolId))
-      return { id: schoolId, nama: (snap.data()?.nama as string | undefined) ?? 'Sekolah' }
+      const d = snap.data()
+      return {
+        id: schoolId,
+        nama: (d?.nama as string | undefined) ?? 'Sekolah',
+        pengirimanDokumenGuru: d?.fitur?.pengirimanDokumenGuru === true,
+      }
     },
   })
 }

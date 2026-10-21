@@ -5,7 +5,7 @@ Aplikasi supervisi akademik guru SMP (React 19 + Vite + TypeScript + Firebase). 
 
 ## Perintah
 - `npm run check` — typecheck + lint + unit test (cepat, wajib hijau sebelum commit)
-- `npm run test:rules` — Firestore Rules + integrasi API terhadap emulator (butuh Java + firebase-tools)
+- `npm run test:rules` — Firestore + Storage Rules dan integrasi API/layanan dokumen terhadap emulator (butuh Java + firebase-tools)
 - `npm run test:e2e` — Playwright (Chrome sistem) di atas emulator
 - `npm run build`
 
@@ -22,6 +22,10 @@ Aplikasi supervisi akademik guru SMP (React 19 + Vite + TypeScript + Firebase). 
 6. Jangan menampilkan pesan galat Firebase mentah ke pengguna (`pesanError` / `PesanGalat`).
 7. Jangan commit `.env*.local`, kredensial, atau data guru nyata. `.env.e2e` hanya berisi nilai dummy emulator.
 8. **Jangan deploy**, menjalankan migrasi, atau mengubah konfigurasi project Firebase tanpa persetujuan pemilik.
+9. **Dokumen/berkas**: akses berkas dikunci di `storage.rules` (membaca metadata di `documents/{id}`); tidak ada URL publik/`getDownloadURL`.
+   Urutan unggah *metadata → berkas → finalisasi* dan tahap idempotennya jangan diubah tanpa tes di `tests/rules/`. Batas ukuran/tipe/versi
+   ditulis di `config.ts` **dan** kedua berkas rules (tes konsistensi menjaga). Jangan klaim upload berfungsi di project nyata sebelum
+   Storage diaktifkan dan diuji di staging (lihat `docs/DOKUMEN.md`).
 
 ## Konvensi
 - UI berbahasa Indonesia, kalimat biasa; komentar menjelaskan *mengapa*.

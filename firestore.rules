@@ -416,6 +416,320 @@ service cloud.firestore {
       }
     }
 
+    // ---------------------------------------------------------------- dokumen (metadata berkas)
+    //
+    // Metadata dokumen di sini adalah sumber data utama; berkasnya di Firebase Storage (storage.rules
+    // mengunci akses berkas ke dokumen ini). Alur: metadata DULU (status 'mengunggah', rincian di
+    // `pending`) → berkas diunggah ke path itu → difinalisasi. Lihat docs/DOKUMEN.md.
+
+    // Nilai berikut HARUS sama dengan src/features/documents/config.ts dan storage.rules;
+    // tests/rules/dokumen-config.test.ts memastikan ketiganya tidak berbeda.
+    function maksUkuran() {
+      return 10485760;
+    }
+
+    function maksVersi() {
+      return 20;
+    }
+
+    function mimeDiizinkan(m) {
+      return m in ['application/pdf',
+                   'application/msword',
+                   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+                   'application/vnd.ms-excel',
+                   'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+                   'text/csv',
+                   'image/jpeg',
+                   'image/png'];
+    }
+
+    // Ekstensi pada path penyimpanan harus sesuai MIME yang dinyatakan.
+    function mimeCocokPath(path, m) {
+      return (path.matches('.*[.]pdf') && m == 'application/pdf')
+        || (path.matches('.*[.]doc') && m == 'application/msword')
+        || (path.matches('.*[.]docx') && m == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        || (path.matches('.*[.]xls') && m == 'application/vnd.ms-excel')
+        || (path.matches('.*[.]xlsx') && m == 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        || (path.matches('.*[.]csv') && m == 'text/csv')
+        || (path.matches('.*[.]jpe?g') && m == 'image/jpeg')
+        || (path.matches('.*[.]png') && m == 'image/png');
+    }
+
+    function idAman(v) {
+      return v is string && v.matches('^[A-Za-z0-9_-]{1,128}$');
+    }
+
+    function judulValid(v) {
+      return v is string && v.size() > 0 && v.size() <= 120;
+    }
+
+    // Jendela waktu untuk stempel dari jam klien di dalam array (array tidak boleh memuat serverTimestamp).
+    function waktuWajar(t) {
+      return t is timestamp
+        && t > request.time - duration.value(10, 'm')
+        && t < request.time + duration.value(10, 'm');
+    }
+
+    // Entri keputusan (review dokumen): pelaku = pemanggil; nama adalah snapshot tampilan.
+    function entriKeputusanValid(e, status) {
+      return e.keys().hasOnly(['status', 'oleh', 'nama', 'catatan', 'at'])
+        && e.keys().hasAll(['status', 'oleh', 'nama', 'catatan', 'at'])
+        && e.status == status
+        && e.oleh == request.auth.uid
+        && e.nama is string && e.nama.size() <= 100
+        && e.catatan is string && e.catatan.size() <= 1000
+        && waktuWajar(e.at);
+    }
+
+    function keputusanAwalValid(r, status) {
+      return r is list && r.size() == 1 && entriKeputusanValid(r[0], status);
+    }
+
+    // Append-only: tepat satu entri baru di akhir; entri lama tidak boleh disentuh.
+    function keputusanBertambah(lama, baru, status) {
+      return baru is list
+        && baru.size() == lama.size() + 1
+        && baru[0:lama.size()] == lama
+        && entriKeputusanValid(baru[lama.size()], status);
+    }
+
+    // Relasi dari klien tidak dipercaya: entitas harus ada dan milik sekolah yang sama.
+    function supervisiSekolah(id, schoolId) {
+      return idAman(id)
+        && exists(supervisiPath(id))
+        && get(supervisiPath(id)).data.schoolId == schoolId
+        && get(supervisiPath(id)).data.deletedAt == null;
+    }
+
+    function tindakSekolah(id, schoolId) {
+      return idAman(id)
+        && exists(tindakPath(id))
+        && get(tindakPath(id)).data.schoolId == schoolId;
+    }
+
+    // Guru harus ada, aktif, dan milik sekolah yang sama.
+    function guruSah(schoolId, guruId) {
+      return idAman(guruId)
+        && exists(/databases/$(database)/documents/guru/$(guruId))
+        && get(/databases/$(database)/documents/guru/$(guruId)).data.schoolId == schoolId
+        && get(/databases/$(database)/documents/guru/$(guruId)).data.aktif == true;
+    }
+
+    // Fitur per sekolah, diatur pemilik di dokumen sekolah (klien tidak dapat menulisnya). Bawaan: mati.
+    function fiturPengirimanGuruAktif(schoolId) {
+      return get(/databases/$(database)/documents/schools/$(schoolId)).data.get('fitur', {}).get('pengirimanDokumenGuru', false) == true;
+    }
+
+    function kunciDokumen() {
+      return ['schoolId', 'kategori', 'supervisiId', 'guruId', 'tindakId', 'judul', 'status', 'currentVersion',
+              'versions', 'pending', 'reviewStatus', 'reviewRiwayat', 'createdBy', 'createdByName', 'createdAt',
+              'updatedAt', 'deletedAt', 'deletedBy'];
+    }
+
+    // Relasi harus sesuai kategori dan merujuk entitas se-sekolah (ID stabil, bukan nama).
+    function relasiDokumenValid(d) {
+      return (d.kategori in ['pendukung-supervisi', 'bukti-pelaksanaan', 'lampiran-rekomendasi']
+              && d.guruId == null && d.tindakId == null
+              && supervisiSekolah(d.supervisiId, d.schoolId))
+        || (d.kategori == 'tindak-lanjut'
+              && d.supervisiId == null && d.guruId == null
+              && tindakSekolah(d.tindakId, d.schoolId))
+        || (d.kategori == 'pengajuan-guru'
+              && d.supervisiId == null && d.tindakId == null
+              && guruSah(d.schoolId, d.guruId)
+              && fiturPengirimanGuruAktif(d.schoolId))
+        || (d.kategori in ['template', 'administratif']
+              && d.supervisiId == null && d.guruId == null && d.tindakId == null);
+    }
+
+    // Rincian satu berkas. Path dikunci ke sekolah, dokumen, dan nomor versi; nama objek wajib UUID
+    // (nama asli berkas hanya disimpan sebagai teks tampilan, tidak pernah menjadi path).
+    function berkasValid(p, schoolId, docId, n) {
+      return p.keys().hasAll(['n', 'storagePath', 'fileName', 'mimeType', 'size', 'sha256', 'uploadedBy'])
+        && p.n == n
+        && p.storagePath is string
+        && p.storagePath.matches('sekolah/' + schoolId + '/dokumen/' + docId + '/v' + string(n)
+                                 + '/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}[.](pdf|doc|docx|xls|xlsx|csv|jpg|jpeg|png)')
+        && p.mimeType is string && mimeDiizinkan(p.mimeType) && mimeCocokPath(p.storagePath, p.mimeType)
+        && p.size is int && p.size > 0 && p.size <= maksUkuran()
+        && p.sha256 is string && p.sha256.matches('[0-9a-f]{64}')
+        && p.fileName is string && p.fileName.size() > 0 && p.fileName.size() <= 120;
+    }
+
+    function pendingValid(p, schoolId, docId, n) {
+      return p is map
+        && p.keys().hasOnly(['n', 'storagePath', 'fileName', 'mimeType', 'size', 'sha256', 'uploadedBy', 'startedAt'])
+        && p.keys().hasAll(['startedAt'])
+        && berkasValid(p, schoolId, docId, n)
+        && p.uploadedBy == request.auth.uid
+        && waktuWajar(p.startedAt);
+    }
+
+    function versiDariPending(v, p) {
+      return v is map
+        && v.keys().hasOnly(['n', 'storagePath', 'fileName', 'mimeType', 'size', 'sha256', 'uploadedBy', 'uploadedAt'])
+        && v.n == p.n
+        && v.storagePath == p.storagePath
+        && v.fileName == p.fileName
+        && v.mimeType == p.mimeType
+        && v.size == p.size
+        && v.sha256 == p.sha256
+        && v.uploadedBy == p.uploadedBy
+        && waktuWajar(v.uploadedAt);
+    }
+
+    function reviewAwalValid(d) {
+      return (d.kategori == 'pengajuan-guru' && d.reviewStatus == 'diajukan' && keputusanAwalValid(d.reviewRiwayat, 'diajukan'))
+        || (d.kategori != 'pengajuan-guru' && d.reviewStatus == null && d.reviewRiwayat == []);
+    }
+
+    // Sama dengan src/features/documents/review.ts.
+    function reviewTransisiSah(dari, ke) {
+      return (dari == 'diajukan' && ke in ['disetujui', 'ditolak', 'perlu_revisi'])
+        || (dari == 'perlu_revisi' && ke == 'diajukan');
+    }
+
+    function dokDiff() {
+      return request.resource.data.diff(resource.data).affectedKeys();
+    }
+
+    function pembuatAtauAdminDok() {
+      return resource.data.createdBy == request.auth.uid || isAdmin(resource.data.schoolId);
+    }
+
+    // Menambah tepat satu versi yang identik dengan `pending`, lalu mengosongkan `pending`.
+    // Versi "perlu revisi" otomatis diajukan ulang dan tercatat.
+    function dokFinalisasi() {
+      let lama = resource.data;
+      let baru = request.resource.data;
+      return lama.pending != null
+        && lama.pending.uploadedBy == request.auth.uid
+        && lama.status in ['mengunggah', 'tersedia']
+        && baru.status == 'tersedia'
+        && baru.pending == null
+        && baru.currentVersion == lama.pending.n
+        && baru.versions.size() == lama.versions.size() + 1
+        // Irisan list kosong ([0:0]) memicu galat indeks di runtime Rules, jadi ditangani terpisah.
+        && (lama.versions.size() == 0 || baru.versions[0:lama.versions.size()] == lama.versions)
+        && versiDariPending(baru.versions[lama.versions.size()], lama.pending)
+        && (lama.reviewStatus == 'perlu_revisi'
+            ? (dokDiff().hasOnly(['status', 'pending', 'currentVersion', 'versions', 'reviewStatus', 'reviewRiwayat', 'updatedAt'])
+               && baru.reviewStatus == 'diajukan'
+               && keputusanBertambah(lama.reviewRiwayat, baru.reviewRiwayat, 'diajukan'))
+            : dokDiff().hasOnly(['status', 'pending', 'currentVersion', 'versions', 'updatedAt']));
+    }
+
+    function dokMulaiVersi(docId) {
+      let lama = resource.data;
+      let baru = request.resource.data;
+      return lama.status == 'tersedia'
+        && lama.pending == null
+        && lama.createdBy == request.auth.uid
+        && lama.currentVersion < maksVersi()
+        && !(lama.reviewStatus in ['disetujui', 'ditolak'])
+        && dokDiff().hasOnly(['pending', 'updatedAt'])
+        && pendingValid(baru.pending, lama.schoolId, docId, lama.currentVersion + 1);
+    }
+
+    // Unggahan versi baru dibatalkan/gagal: versi yang sudah ada tetap utuh.
+    function dokBatalkanPending() {
+      return resource.data.pending != null
+        && resource.data.pending.uploadedBy == request.auth.uid
+        && resource.data.versions.size() > 0
+        && request.resource.data.pending == null
+        && dokDiff().hasOnly(['pending', 'updatedAt']);
+    }
+
+    function dokUbahJudul() {
+      return pembuatAtauAdminDok()
+        && resource.data.status == 'tersedia'
+        && dokDiff().hasOnly(['judul', 'updatedAt'])
+        && judulValid(request.resource.data.judul);
+    }
+
+    function dokKeputusanReview() {
+      let lama = resource.data;
+      let baru = request.resource.data;
+      return lama.status == 'tersedia'
+        && lama.pending == null
+        && lama.reviewStatus != null
+        && dokDiff().hasOnly(['reviewStatus', 'reviewRiwayat', 'updatedAt'])
+        && reviewTransisiSah(lama.reviewStatus, baru.reviewStatus)
+        && keputusanBertambah(lama.reviewRiwayat, baru.reviewRiwayat, baru.reviewStatus)
+        // Menolak atau meminta revisi wajib disertai alasan.
+        && (!(baru.reviewStatus in ['ditolak', 'perlu_revisi'])
+            || baru.reviewRiwayat[lama.reviewRiwayat.size()].catatan.size() > 0);
+    }
+
+    function dokHapusLunak() {
+      let lama = resource.data;
+      let baru = request.resource.data;
+      return lama.status == 'tersedia'
+        && lama.pending == null
+        && pembuatAtauAdminDok()
+        && dokDiff().hasOnly(['status', 'deletedAt', 'deletedBy', 'updatedAt'])
+        && baru.status == 'dihapus'
+        && baru.deletedAt == request.time
+        && baru.deletedBy == request.auth.uid;
+    }
+
+    function dokPulihkan() {
+      let lama = resource.data;
+      let baru = request.resource.data;
+      return lama.status == 'dihapus'
+        && pembuatAtauAdminDok()
+        && lama.versions.size() > 0
+        && dokDiff().hasOnly(['status', 'deletedAt', 'deletedBy', 'updatedAt'])
+        && baru.status == 'tersedia'
+        && baru.deletedAt == null
+        && baru.deletedBy == null;
+    }
+
+    match /documents/{docId} {
+      // Metadata terlihat oleh seluruh pengguna aktif sekolah (termasuk yang terhapus-lunak, untuk tempat sampah).
+      // `resource == null` (dokumen belum ada): pengguna aktif menerima "tidak ada" alih-alih galat izin,
+      // sehingga unggahan dapat idempoten. Konsekuensi yang diterima: pengguna aktif dapat membedakan ID
+      // yang tidak ada dari ID yang ada tetapi bukan miliknya (ID acak 20 karakter; isi tetap tertutup).
+      allow get: if resource == null ? active() : inSchool(resource.data.schoolId);
+      allow list: if inSchool(resource.data.schoolId);
+
+      allow create: if request.resource.data.keys().hasOnly(kunciDokumen())
+        && request.resource.data.keys().hasAll(kunciDokumen())
+        && idAman(docId)
+        && idAman(request.resource.data.schoolId)
+        && inSchool(request.resource.data.schoolId)
+        && request.resource.data.kategori in ['pendukung-supervisi', 'bukti-pelaksanaan', 'lampiran-rekomendasi',
+                                              'tindak-lanjut', 'template', 'administratif', 'pengajuan-guru']
+        && relasiDokumenValid(request.resource.data)
+        && judulValid(request.resource.data.judul)
+        && request.resource.data.status == 'mengunggah'
+        && request.resource.data.currentVersion == 0
+        && request.resource.data.versions == []
+        && pendingValid(request.resource.data.pending, request.resource.data.schoolId, docId, 1)
+        && reviewAwalValid(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdByName is string && request.resource.data.createdByName.size() <= 100
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.deletedAt == null
+        && request.resource.data.deletedBy == null;
+
+      allow update: if inSchool(resource.data.schoolId)
+        && request.resource.data.keys().hasOnly(kunciDokumen())
+        && request.resource.data.keys().hasAll(kunciDokumen())
+        && request.resource.data.updatedAt == request.time
+        && (dokFinalisasi() || dokMulaiVersi(docId) || dokBatalkanPending() || dokUbahJudul()
+            || dokKeputusanReview() || dokHapusLunak() || dokPulihkan());
+
+      // Hanya dua jalur hapus-permanen: unggahan pertama yang gagal (belum ada versi; oleh pengunggah),
+      // atau dokumen yang sebelumnya dihapus-lunak (oleh pembuat atau admin sekolah). Berkas di Storage
+      // dihapus LEBIH DULU oleh klien.
+      allow delete: if inSchool(resource.data.schoolId)
+        && ((resource.data.status == 'mengunggah' && resource.data.versions.size() == 0
+             && resource.data.createdBy == request.auth.uid)
+            || (resource.data.status == 'dihapus' && pembuatAtauAdminDok()));
+    }
+
     // Selain yang tercantum di atas: ditolak.
   }
 }

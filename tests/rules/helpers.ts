@@ -48,6 +48,8 @@ export async function siapkanEnv(): Promise<RulesTestEnvironment> {
   env = await initializeTestEnvironment({
     projectId: PROJECT_ID,
     firestore: { rules: readFileSync('firestore.rules', 'utf8') },
+    // Storage Rules membaca Firestore (firestore.get), jadi keduanya diuji bersama di emulator.
+    storage: { rules: readFileSync('storage.rules', 'utf8') },
   })
   return env
 }

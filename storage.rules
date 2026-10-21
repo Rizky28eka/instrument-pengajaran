@@ -1,0 +1,77 @@
+rules_version = '2';
+
+/**
+ * Storage Rules — akses berkas DIKUNCI ke metadata di Firestore (documents/{docId}).
+ *
+ *  - Tidak ada URL publik: pembacaan hanya lewat SDK terautentikasi dan lolos aturan ini.
+ *  - Unggah (create) hanya ke path yang dicadangkan metadata (`pending.storagePath`), oleh pengunggah
+ *    tercatat, dengan ukuran dan tipe persis seperti yang tercatat. Setelah finalisasi `pending` kosong
+ *    sehingga tidak ada jalur tulis ke objek tersebut; versi baru = path baru. `update` ditolak.
+ *  - Membaca berkas dokumen yang dihapus-lunak ditolak. Menghapus objek hanya untuk (a) pembersihan
+ *    unggahan tertunda oleh pengunggah, atau (b) penghapusan permanen setelah status 'dihapus' oleh
+ *    pembuat atau admin sekolah.
+ *  - Enumerasi folder (list) tidak diizinkan.
+ *
+ * Aturan ini membaca Firestore (`firestore.get`) sehingga membutuhkan peran IAM lintas-layanan saat
+ * deploy (lihat docs/DOKUMEN.md). Nilai batas (maksUkuran) HARUS sama dengan
+ * src/features/documents/config.ts dan firestore.rules; ada tes konsistensi.
+ *
+ * BATASAN YANG DIAKUI: Storage Rules tidak dapat memeriksa isi berkas (magic bytes) atau memindai malware.
+ */
+service firebase.storage {
+  match /b/{bucket}/o {
+
+    function maksUkuran() {
+      return 10485760;
+    }
+
+    function dokumen(docId) {
+      return firestore.get(/databases/(default)/documents/documents/$(docId)).data;
+    }
+
+    function profil() {
+      return firestore.get(/databases/(default)/documents/users/$(request.auth.uid)).data;
+    }
+
+    // Pengguna aktif sekolah itu: email terverifikasi, profil berstatus aktif, dan schoolId sama.
+    function anggota(schoolId) {
+      return request.auth != null
+        && request.auth.token.email_verified == true
+        && profil().status == 'active'
+        && profil().schoolId == schoolId;
+    }
+
+    function pathLengkap(schoolId, docId, versi, objek) {
+      return 'sekolah/' + schoolId + '/dokumen/' + docId + '/' + versi + '/' + objek;
+    }
+
+    match /sekolah/{schoolId}/dokumen/{docId}/{versi}/{objek} {
+      allow get: if anggota(schoolId)
+        && dokumen(docId).schoolId == schoolId
+        && dokumen(docId).status != 'dihapus';
+
+      // Tulis hanya mungkin selama `pending` dicadangkan; setelah finalisasi `pending` kosong
+      // sehingga tidak ada jalur tulis ke objek tersebut oleh siapa pun.
+      allow create: if anggota(schoolId)
+        && dokumen(docId).schoolId == schoolId
+        && dokumen(docId).status in ['mengunggah', 'tersedia']
+        && dokumen(docId).pending != null
+        && dokumen(docId).pending.uploadedBy == request.auth.uid
+        && dokumen(docId).pending.storagePath == pathLengkap(schoolId, docId, versi, objek)
+        && request.resource.size > 0
+        && request.resource.size <= maksUkuran()
+        && request.resource.size == dokumen(docId).pending.size
+        && request.resource.contentType == dokumen(docId).pending.mimeType;
+
+      allow update: if false;
+
+      allow delete: if anggota(schoolId)
+        && dokumen(docId).schoolId == schoolId
+        && ((dokumen(docId).status == 'dihapus'
+             && (dokumen(docId).createdBy == request.auth.uid || profil().role == 'admin'))
+            || (dokumen(docId).pending != null
+                && dokumen(docId).pending.uploadedBy == request.auth.uid
+                && dokumen(docId).pending.storagePath == pathLengkap(schoolId, docId, versi, objek)));
+    }
+  }
+}
