@@ -1,16 +1,55 @@
-# React + Vite
+# Instrumen Supervisi Akademik Guru
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Aplikasi web digital untuk supervisi akademik guru **SMP · Kurikulum Merdeka**, dipakai kepala sekolah / supervisor akademik.
 
-Currently, two official plugins are available:
+**Stack:** React 19 · Vite 8 · TypeScript · Tailwind CSS 4 · React Router 8 · TanStack Query · React Hook Form + Zod · Firebase (Auth + Firestore)
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Fitur
 
-## React Compiler
+- Login email/kata sandi atau Google (Firebase Auth)
+- Form supervisi bertahap: identitas → 5 aspek (skala 1–4) → catatan & rekomendasi
+- Nilai, predikat, dan skor per aspek dihitung otomatis; draf tersimpan otomatis di browser
+- Dashboard: rata-rata nilai, capaian per aspek, distribusi predikat, guru yang perlu pendampingan
+- Daftar data dengan pencarian & filter, detail, ubah, hapus, **cetak** (A4) dan **ekspor CSV** (siap impor ke Google Sheets)
+- Cache offline Firestore untuk koneksi sekolah yang kurang stabil
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Menjalankan
 
-## Expanding the Oxlint configuration
+```bash
+npm install
+cp .env.example .env.local   # isi dengan kredensial Web App Firebase
+npm run dev
+```
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+Skrip lain: `npm run build` · `npm run typecheck` · `npm run lint` · `npm test`
+
+## Setup Firebase
+
+1. Buat project di [Firebase Console](https://console.firebase.google.com), tambahkan **Web app**, salin konfigurasinya ke `.env.local`.
+2. **Authentication → Sign-in method:** aktifkan *Email/Password* dan *Google*.
+3. **Firestore Database:** buat database, lalu terapkan aturan keamanan:
+   ```bash
+   npx firebase-tools deploy --only firestore:rules
+   ```
+   Aturan di [firestore.rules](firestore.rules): semua pengguna login dapat membaca; hanya pembuat dokumen yang dapat mengubah/menghapus.
+4. (Opsional) Deploy: `npm run build && npx firebase-tools deploy --only hosting`.
+
+## Struktur data
+
+Koleksi `supervisi`, satu dokumen per kegiatan supervisi:
+
+| Field | Isi |
+|---|---|
+| `identitas` | sekolah, guru, mapel, kelas, supervisor, tanggal, kurikulum, model pembelajaran |
+| `skor` | peta id indikator → 1–4 (mis. `A1`, `B12`) |
+| `catatanAspek`, `catatan` | catatan per aspek; kekuatan, perbaikan, rekomendasi |
+| `ringkasan` | total, nilai (0–100), predikat, skor per aspek |
+| `createdBy`, `createdAt`, `updatedAt` | metadata |
+
+Predikat dari nilai = skor ÷ skor maksimal × 100: **≥86 Sangat Baik · ≥71 Baik · ≥56 Cukup · <56 Perlu Perbaikan** (ubah di [src/lib/scoring.ts](src/lib/scoring.ts)).
+
+## Master instrumen
+
+Seluruh indikator ada di [src/data/instrumen.ts](src/data/instrumen.ts); form, skor, dan ekspor dibangun dari sana.
+
+> **Perlu dikonfirmasi:** dokumen sumber berhenti pada indikator C3 (aspek Asesmen). Indikator **C4–C6** serta seluruh isi aspek **D (Media & Teknologi)** dan **E (Evaluasi & Tindak Lanjut)** adalah rancangan awal dan harus disesuaikan dengan instrumen resmi. Cukup edit file tersebut.
