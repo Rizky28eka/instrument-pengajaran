@@ -2,7 +2,7 @@
 
 Aplikasi web digital untuk supervisi akademik guru **SMP · Kurikulum Merdeka**, dipakai kepala sekolah / supervisor akademik.
 
-**Stack:** React 19 · Vite 8 · TypeScript · Tailwind CSS 4 · React Router 8 · TanStack Query · React Hook Form + Zod · Firebase (Auth + Firestore)
+**Stack:** React 19 · Vite 8 · TypeScript · Tailwind CSS 4 · React Router 8 · TanStack Query · React Hook Form + Zod · Firebase (Auth + Firestore + Storage)
 
 ## Fitur
 
@@ -13,6 +13,10 @@ Aplikasi web digital untuk supervisi akademik guru **SMP · Kurikulum Merdeka**,
 - Tindak lanjut terstruktur (status, penanggung jawab, tenggat, catatan, riwayat) + ringkasan dashboard
 - Soft-delete + pemulihan oleh admin, riwayat perubahan, perlindungan terhadap penimpaan (lost update)
 - Ekspor CSV (aman dari formula injection) dan cetak A4
+- **Dokumen & bukti** (PDF, Word, Excel, CSV, JPG/PNG): unggah dengan progres, batal, coba lagi, dan deteksi duplikat;
+  versi; pratinjau PDF/gambar; unduh terotorisasi (tanpa URL publik); hapus-lunak/pulihkan; antrean review untuk pengajuan guru.
+  Lihat [docs/DOKUMEN.md](docs/DOKUMEN.md) — **Firebase Storage belum aktif di project**, fitur ini baru teruji di emulator
+- Indikator instrumen yang **belum terkonfirmasi** dengan dokumen sumber (13 dari 42) ditandai di UI
 
 ## Menjalankan
 
@@ -45,4 +49,4 @@ Predikat dari nilai = skor ÷ skor maksimal × 100: **≥86 Sangat Baik · ≥71
 
 Seluruh indikator ada di [src/data/instrumen.ts](src/data/instrumen.ts); form, skor, dan ekspor dibangun dari sana.
 
-> **Perlu dikonfirmasi:** dokumen sumber berhenti pada indikator C3 (aspek Asesmen). Indikator **C4–C6** serta seluruh isi aspek **D (Media & Teknologi)** dan **E (Evaluasi & Tindak Lanjut)** adalah rancangan awal dan harus disesuaikan dengan instrumen resmi. Cukup edit file tersebut.
+> **Perlu dikonfirmasi:** dokumen sumber berhenti pada indikator C3 (aspek Asesmen). Indikator **C4–C6** serta seluruh isi aspek **D (Media & Teknologi)** dan **E (Evaluasi & Tindak Lanjut)** adalah rancangan awal dan harus disesuaikan dengan instrumen resmi. Indikator itu ditandai di UI ([src/data/konfirmasi.ts](src/data/konfirmasi.ts), [docs/INSTRUMEN-INVENTARIS.md](docs/INSTRUMEN-INVENTARIS.md)). Untuk melengkapinya buat berkas versi baru; jangan mengedit versi lama.

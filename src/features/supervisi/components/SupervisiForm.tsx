@@ -119,7 +119,7 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
 
           <div key={langkah.id} className="animate-fade-in px-5 py-6 sm:px-6">
             {langkah.id === 'identitas' && <IdentitasStep guruTetap={guruTetap} />}
-            {aspek && <AspekStep aspek={aspek} />}
+            {aspek && <AspekStep aspek={aspek} versi={instrumen.versi} />}
             {langkah.id === 'catatan' && <CatatanStep instrumen={instrumen} />}
           </div>
 

@@ -35,6 +35,7 @@ export const router = createBrowserRouter([
                   { path: 'guru', lazy: page(() => import('@/routes/GuruPage')) },
                   { path: 'guru/:id', lazy: page(() => import('@/routes/GuruDetailPage')) },
                   { path: 'tindak-lanjut', lazy: page(() => import('@/routes/TindakLanjutPage')) },
+                  { path: 'dokumen', lazy: page(() => import('@/routes/DokumenPage')) },
                   { path: 'pengguna', lazy: page(() => import('@/routes/PenggunaPage')) },
                   { path: 'instrumen', lazy: page(() => import('@/routes/InstrumenPage')) },
                   { path: '*', Component: ErrorPage },

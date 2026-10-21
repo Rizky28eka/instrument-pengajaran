@@ -11,9 +11,12 @@ import { PanelGalat } from '@/components/ui/PanelGalat'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { InstrumenNotice } from '@/components/ui/InstrumenNotice'
 import { PageLoader } from '@/components/ui/Spinner'
+import { Badge } from '@/components/ui/Badge'
 import { SKALA } from '@/data/instrumen'
+import { belumTerkonfirmasi } from '@/data/konfirmasi'
 import { pesanError } from '@/features/auth/actions'
 import { useProfilAktif } from '@/features/auth/auth-context'
+import { DokumenPanel } from '@/features/documents/components/DokumenPanel'
 import { RiwayatPanel } from '@/features/supervisi/components/RiwayatPanel'
 import { NilaiAkhir, TabelRingkasan } from '@/features/supervisi/components/RingkasanSkor'
 import { downloadCsv } from '@/features/supervisi/csv'
@@ -203,7 +206,14 @@ export default function SupervisiDetailPage() {
                         <li key={ind.id} className="flex items-start justify-between gap-4 py-2.5 text-sm">
                           <span className="flex gap-3">
                             <span className="w-7 shrink-0 font-semibold text-slate-400">{ind.id}</span>
-                            <span className="text-slate-700">{ind.teks}</span>
+                            <span className="text-slate-700">
+                              {ind.teks}
+                              {belumTerkonfirmasi(data.instrumen.versi, ind.id) && (
+                                <Badge nada="kuning" className="ml-2 align-middle">
+                                  Rancangan
+                                </Badge>
+                              )}
+                            </span>
                           </span>
                           <span
                             className={cn('shrink-0 rounded-md px-2 py-0.5 text-xs font-bold whitespace-nowrap', v ? WARNA_SKOR[v] : 'bg-slate-100 text-slate-400')}
@@ -248,6 +258,16 @@ export default function SupervisiDetailPage() {
 
         {!terhapus && (
           <TindakLanjutPanel rujukan={{ id, schoolId: data.schoolId, guruId: data.guruId, guruNama: data.guruNama }} boleh />
+        )}
+
+        {!terhapus && (
+          <DokumenPanel
+            schoolId={data.schoolId}
+            relasi={{ supervisiId: id }}
+            kategori={['pendukung-supervisi', 'bukti-pelaksanaan', 'lampiran-rekomendasi']}
+            judul="Dokumen pendukung & bukti"
+            deskripsi="Lampiran hanya dapat dibuka oleh pengguna sekolah ini. Mengunggah dokumen tidak mengubah skor."
+          />
         )}
 
         <RiwayatPanel id={id} />

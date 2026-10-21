@@ -8,6 +8,8 @@ CLI. Tidak ada perubahan ke project Firebase yang dilakukan otomatis oleh repo i
 Aplikasi versi ini memakai model akses baru. Deploy dengan urutan:
 
 1. `firebase deploy --only firestore:rules,firestore:indexes --project <id>` (indeks butuh beberapa menit)
+   - Fitur dokumen: aktifkan Storage dulu (bagian 11), lalu tambahkan `storage` ke daftar `--only`. `firestore.rules` kini
+     juga memuat aturan `documents`; men-deploy-nya tanpa Storage aktif aman (koleksi `documents` hanya tidak terpakai).
 2. Buat sekolah + admin pertama (bagian 2)
 3. `npm run build && firebase deploy --only hosting --project <id>`
 
@@ -89,3 +91,13 @@ Tinjau ulang saat Firebase SDK merilis versi yang memperbarui dependensinya.
 `riwayat/{rev}` bersifat append-only dan wajib menyertai setiap perubahan (ditegakkan Rules); pelaku dan waktu
 tidak dapat dipalsukan oleh klien. Namun isi ringkasan pada entri dikirim klien, dan siapa pun dengan akses
 konsol/Admin SDK dapat mengubahnya. Ini bukan bukti tak-dapat-dimanipulasi sekelas log server.
+
+## 11. Dokumen dan Firebase Storage — belum aktif
+
+Fitur unggah dokumen (menu **Dokumen** dan panel di detail supervisi) sudah ada di kode dan teruji di emulator, tetapi
+**Firebase Storage belum aktif** di project ini (bucket menjawab 404). Mengaktifkannya kemungkinan membutuhkan paket
+Blaze (keputusan Anda), deploy `storage.rules` dengan persetujuan IAM lintas-layanan, dan CORS bucket
+(`storage.cors.json`). Langkah lengkap, model data, batas ukuran/tipe, kebijakan retensi, dan batasannya:
+[docs/DOKUMEN.md](DOKUMEN.md). Kategori *pengajuan guru* mati secara bawaan; diaktifkan per sekolah dengan menulis
+`fitur: { pengirimanDokumenGuru: true }` pada dokumen `schools/{id}` di konsol (klien tidak bisa menulis dokumen sekolah).
+Tidak ada yang di-deploy atau diubah di project oleh perubahan ini.
