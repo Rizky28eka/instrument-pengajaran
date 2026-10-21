@@ -12,8 +12,10 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { PageLoader } from '@/components/ui/Spinner'
 import { ASPEK } from '@/data/instrumen'
 import { useAuth } from '@/features/auth/auth-context'
+import { PanelGalat } from '@/components/ui/PanelGalat'
 import type { Supervisi } from '@/features/supervisi/api'
-import { useSupervisiList } from '@/features/supervisi/queries'
+import { BATAS_TERBARU } from '@/features/supervisi/api'
+import { useSupervisiTerbaru } from '@/features/supervisi/queries'
 import { PREDIKAT, predikatDari } from '@/lib/scoring'
 import { cn, formatNilai, formatTanggal, hariIniISO } from '@/lib/utils'
 
@@ -25,7 +27,8 @@ function hitungStatistik(data: Supervisi[]) {
   const bulanIni = hariIniISO().slice(0, 7)
   return {
     total: data.length,
-    guru: new Set(data.map((d) => d.identitas.namaGuru.trim().toLowerCase())).size,
+    // Dihitung dari ID guru (master data), bukan dari nama yang diketik.
+    guru: new Set(data.map((d) => d.guruId)).size,
     rata: rataRata(data.map((d) => d.ringkasan.nilai)),
     bulanIni: data.filter((d) => d.identitas.tanggal.startsWith(bulanIni)).length,
     // Aspek dicocokkan lewat id; dokumen dari versi instrumen lain yang tak memuat aspek itu dilewati.
@@ -54,10 +57,11 @@ function StatCard({ icon: Icon, label, value, hint }: { icon: LucideIcon; label:
 }
 
 export default function DashboardPage() {
-  const { user } = useAuth()
-  const { data = [], isPending } = useSupervisiList()
+  const { profil } = useAuth()
+  const terbaru = useSupervisiTerbaru()
+  const data = useMemo(() => terbaru.data?.item ?? [], [terbaru.data])
   const s = useMemo(() => hitungStatistik(data), [data])
-  const sapaan = user?.displayName?.split(' ')[0]
+  const sapaan = profil?.nama?.split(' ')[0]
 
   const tombolBaru = (
     <Link to="/supervisi/baru" className={buttonClass()}>
@@ -65,7 +69,16 @@ export default function DashboardPage() {
     </Link>
   )
 
-  if (isPending) return <PageLoader />
+  if (terbaru.isPending) return <PageLoader />
+  if (terbaru.isError)
+    return (
+      <>
+        <PageHeader title="Dashboard" description="Ringkasan hasil supervisi akademik guru." />
+        <Card>
+          <PanelGalat error={terbaru.error} onCoba={() => void terbaru.refetch()} />
+        </Card>
+      </>
+    )
 
   return (
     <>
@@ -75,6 +88,11 @@ export default function DashboardPage() {
         actions={tombolBaru}
       />
 
+      {terbaru.data?.terpotong && (
+        <p role="note" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
+          Statistik dihitung dari {BATAS_TERBARU} supervisi terbaru.
+        </p>
+      )}
       {data.length === 0 ? (
         <Card>
           <EmptyState
@@ -168,7 +186,7 @@ export default function DashboardPage() {
                   <li key={d.id}>
                     <Link to={`/supervisi/${d.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50">
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-900">{d.identitas.namaGuru}</p>
+                        <p className="truncate font-medium text-slate-900">{d.guruNama}</p>
                         <p className="truncate text-xs text-slate-500">
                           {d.identitas.mataPelajaran} · Kelas {d.identitas.kelas} · {formatTanggal(d.identitas.tanggal)}
                         </p>
@@ -194,7 +212,7 @@ export default function DashboardPage() {
                       <Link to={`/supervisi/${d.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                         <TriangleAlert className={cn('size-4 shrink-0', PREDIKAT_STYLE[d.ringkasan.predikat].text)} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-900">{d.identitas.namaGuru}</p>
+                          <p className="truncate text-sm font-medium text-slate-900">{d.guruNama}</p>
                           <p className="truncate text-xs text-slate-500">{d.identitas.mataPelajaran}</p>
                         </div>
                         <span className="text-sm font-semibold tabular-nums">{formatNilai(d.ringkasan.nilai)}</span>

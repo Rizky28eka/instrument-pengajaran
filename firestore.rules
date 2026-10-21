@@ -230,7 +230,11 @@ service cloud.firestore {
         && d.instrumen is map
         && d.instrumen.versi == d.versiInstrumen
         && d.instrumen.aspek is list
-        && d.instrumen.aspek.size() <= 20;
+        && d.instrumen.aspek.size() >= 1
+        && d.instrumen.aspek.size() <= 20
+        && d.instrumen.ambang is list
+        && d.instrumen.ambang.size() >= 1
+        && d.instrumen.ambang.size() <= 10;
     }
 
     function supervisiPath(id) {

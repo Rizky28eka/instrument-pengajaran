@@ -8,6 +8,7 @@ import {
   INSTRUMEN_TERDAFTAR,
   SEMUA_INDIKATOR,
   SKOR_MAKS_TOTAL,
+  snapshotValid,
 } from './instrumen'
 
 const aspek = (kode: string) => ASPEK.find((a) => a.kode === kode)!
@@ -65,5 +66,40 @@ describe('versioning instrumen', () => {
     s.ambang.reverse()
     const mins = hidrasiInstrumen(s).ambang.map((a) => a.min)
     expect(mins).toEqual([...mins].sort((a, b) => b - a))
+  })
+})
+
+describe('snapshotValid — data dari Firestore tidak dipercaya', () => {
+  const sah = () => JSON.parse(JSON.stringify(ambilSnapshot(INSTRUMEN_AKTIF)))
+
+  it('menerima snapshot yang dibuat aplikasi', () => {
+    expect(snapshotValid(sah())).toBe(true)
+  })
+
+  it.each([
+    ['null', null],
+    ['string', 'x'],
+    ['array', []],
+    ['objek kosong', {}],
+  ])('menolak %s', (_n, v) => expect(snapshotValid(v)).toBe(false))
+
+  it.each([
+    ['ambang kosong', (s: any) => { s.ambang = [] }],
+    ['ambang bukan array', (s: any) => { s.ambang = 'x' }],
+    ['predikat tidak dikenal', (s: any) => { s.ambang[0].predikat = 'Sempurna' }],
+    ['min bukan angka', (s: any) => { s.ambang[0].min = 'tinggi' }],
+    ['min di luar 0–100', (s: any) => { s.ambang[0].min = 250 }],
+    ['aspek kosong', (s: any) => { s.aspek = [] }],
+    ['kelompok kosong', (s: any) => { s.aspek[0].kelompok = [] }],
+    ['indikator kosong', (s: any) => { s.aspek[0].kelompok[0].indikator = [] }],
+    ['id indikator ganda', (s: any) => { s.aspek[1].kelompok[0].indikator[0].id = s.aspek[0].kelompok[0].indikator[0].id }],
+    ['teks indikator bukan string', (s: any) => { s.aspek[0].kelompok[0].indikator[0].teks = 5 }],
+    ['status tidak dikenal', (s: any) => { s.status = 'rahasia' }],
+    ['versi kosong', (s: any) => { s.versi = '' }],
+    ['terlalu banyak indikator', (s: any) => { s.aspek[0].kelompok[0].indikator = Array.from({ length: 121 }, (_, i) => ({ id: `Z${i}`, teks: 't' })) }],
+  ])('menolak: %s', (_n, rusak) => {
+    const s = sah()
+    rusak(s)
+    expect(snapshotValid(s)).toBe(false)
   })
 })

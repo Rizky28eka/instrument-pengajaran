@@ -1,14 +1,15 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
-import { BookOpen, ClipboardList, FilePlus, GraduationCap, LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
+import { BookOpen, ClipboardList, FilePlus, GraduationCap, LayoutDashboard, LogOut, Menu, UsersRound, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/auth-context'
-import { keluar } from '@/features/auth/actions'
+import { useKeluar } from '@/features/auth/useKeluar'
 import { cn } from '@/lib/utils'
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/supervisi', label: 'Data Supervisi', icon: ClipboardList, end: true },
   { to: '/supervisi/baru', label: 'Supervisi Baru', icon: FilePlus, end: true },
+  { to: '/guru', label: 'Guru', icon: UsersRound, end: true },
   { to: '/instrumen', label: 'Instrumen', icon: BookOpen, end: true },
 ]
 
@@ -26,9 +27,9 @@ function Brand() {
   )
 }
 
-function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
-  const { user } = useAuth()
-  const nama = user?.displayName || user?.email || 'Pengguna'
+function Sidebar({ onNavigate, onKeluar }: { onNavigate?: () => void; onKeluar: () => void }) {
+  const { user, profil } = useAuth()
+  const nama = profil?.nama || user?.displayName || user?.email || 'Pengguna'
 
   return (
     <div className="flex h-full flex-col gap-6 p-4">
@@ -58,11 +59,11 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-slate-900">{nama}</p>
-          <p className="truncate text-xs text-slate-500">{user?.email}</p>
+          <p className="truncate text-xs text-slate-500">{profil?.role === 'admin' ? 'Admin sekolah' : 'Supervisor'}</p>
         </div>
         <button
           type="button"
-          onClick={() => keluar()}
+          onClick={onKeluar}
           className="rounded-md p-1.5 text-slate-500 hover:bg-white hover:text-rose-600"
           title="Keluar"
           aria-label="Keluar"
@@ -76,6 +77,7 @@ function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
 
 export function AppLayout() {
   const [open, setOpen] = useState(false)
+  const { mulaiKeluar, dialog } = useKeluar()
   const { pathname } = useLocation()
 
   useEffect(() => {
@@ -85,7 +87,7 @@ export function AppLayout() {
   return (
     <div className="min-h-svh lg:pl-64 print:pl-0">
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-200 bg-white lg:block print:hidden">
-        <Sidebar />
+        <Sidebar onKeluar={() => void mulaiKeluar()} />
       </aside>
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden print:hidden">
@@ -112,7 +114,7 @@ export function AppLayout() {
             >
               <X className="size-5" />
             </button>
-            <Sidebar onNavigate={() => setOpen(false)} />
+            <Sidebar onNavigate={() => setOpen(false)} onKeluar={() => void mulaiKeluar()} />
           </div>
         </div>
       )}
@@ -120,6 +122,7 @@ export function AppLayout() {
       <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">
         <Outlet />
       </main>
+      {dialog}
     </div>
   )
 }

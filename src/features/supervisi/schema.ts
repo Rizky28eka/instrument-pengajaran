@@ -6,10 +6,9 @@ export const MODEL_PEMBELAJARAN = ['Tatap Muka', 'Daring', 'Blended Learning'] a
 
 const wajib = (label: string) => z.string().trim().min(1, `${label} wajib diisi`)
 
-export const identitasSchema = z
+/** Isian identitas pada form. Nama sekolah dan nama guru berasal dari data master, bukan diketik. */
+export const identitasFormSchema = z
   .object({
-    namaSekolah: wajib('Nama sekolah'),
-    namaGuru: wajib('Nama guru'),
     mataPelajaran: wajib('Mata pelajaran'),
     kelas: wajib('Kelas'),
     namaSupervisor: wajib('Nama supervisor'),
@@ -41,24 +40,33 @@ export function buatSupervisiSchema(instrumen: Instrumen): z.ZodType<SupervisiFo
   )
   // Bentuk `skor` bergantung pada instrumen (kunci dinamis), jadi tipe diberikan eksplisit.
   return z.object({
-    identitas: identitasSchema,
+    guruId: z.string().trim().min(1, 'Pilih guru yang disupervisi'),
+    identitas: identitasFormSchema,
     skor,
     catatanAspek: z.record(z.string(), z.string().trim()),
     catatan: catatanSchema,
   }) as unknown as z.ZodType<SupervisiFormValues, SupervisiFormInput>
 }
 
-export type Identitas = z.output<typeof identitasSchema>
+export type IdentitasForm = z.output<typeof identitasFormSchema>
+
+/** Identitas sebagaimana tersimpan di dokumen (snapshot nama sekolah dan guru saat supervisi). */
+export interface Identitas extends IdentitasForm {
+  namaSekolah: string
+  namaGuru: string
+}
 
 export interface SupervisiFormValues {
-  identitas: Identitas
+  guruId: string
+  identitas: IdentitasForm
   skor: Record<string, number>
   catatanAspek: Record<string, string>
   catatan: z.output<typeof catatanSchema>
 }
 
 export interface SupervisiFormInput {
-  identitas: z.input<typeof identitasSchema>
+  guruId: string
+  identitas: z.input<typeof identitasFormSchema>
   skor: Record<string, number | undefined>
   catatanAspek: Record<string, string>
   catatan: z.input<typeof catatanSchema>

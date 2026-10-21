@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react'
-import { Navigate, useLocation, type Location } from 'react-router'
+import { Navigate, useLocation } from 'react-router'
 import { ClipboardCheck, GraduationCap, LineChart, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/Button'
 import { Field, Input } from '@/components/ui/Field'
 import { FullPageLoader } from '@/components/ui/Spinner'
-import { daftarEmail, masukEmail, masukGoogle, pesanError } from '@/features/auth/actions'
+import { daftarEmail, kirimResetSandi, masukEmail, masukGoogle, pesanError } from '@/features/auth/actions'
+import { rutePerStatus } from '@/features/auth/akses'
 import { useAuth } from '@/features/auth/auth-context'
 import { cn } from '@/lib/utils'
 
@@ -28,26 +29,36 @@ function GoogleIcon() {
   )
 }
 
-export default function LoginPage() {
-  const { user, loading } = useAuth()
-  const location = useLocation()
-  const [mode, setMode] = useState<'masuk' | 'daftar'>('masuk')
-  const [busy, setBusy] = useState<'email' | 'google' | null>(null)
+type Mode = 'masuk' | 'daftar' | 'reset'
 
-  if (loading) return <FullPageLoader />
-  if (user) {
-    const from = (location.state as { from?: Location } | null)?.from?.pathname ?? '/dashboard'
-    return <Navigate to={from} replace />
+export default function LoginPage() {
+  const { status } = useAuth()
+  const location = useLocation()
+  const [mode, setMode] = useState<Mode>('masuk')
+  const [busy, setBusy] = useState<'email' | 'google' | null>(null)
+  const [resetTerkirim, setResetTerkirim] = useState(false)
+
+  if (status === 'memuat') return <FullPageLoader />
+  // Sudah masuk: arahkan sesuai status (verifikasi email / aktivasi / dashboard).
+  const tujuan = status !== 'anonim' ? rutePerStatus(status, (location.state as { from?: { pathname?: string } } | null)?.from?.pathname) : null
+  if (tujuan) return <Navigate to={tujuan} replace />
+
+  function ganti(m: Mode) {
+    setMode(m)
+    setResetTerkirim(false)
   }
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     const f = new FormData(e.currentTarget)
     const email = String(f.get('email'))
-    const password = String(f.get('password'))
+    const password = String(f.get('password') ?? '')
     setBusy('email')
     try {
-      if (mode === 'daftar') await daftarEmail(String(f.get('nama')), email, password)
+      if (mode === 'reset') {
+        await kirimResetSandi(email)
+        setResetTerkirim(true)
+      } else if (mode === 'daftar') await daftarEmail(String(f.get('nama')), email, password)
       else await masukEmail(email, password)
     } catch (err) {
       toast.error(pesanError(err))
@@ -105,51 +116,78 @@ export default function LoginPage() {
             </div>
           </div>
           <h2 className="text-2xl font-bold tracking-tight text-slate-900">
-            {mode === 'masuk' ? 'Masuk ke akun Anda' : 'Buat akun supervisor'}
+            {mode === 'masuk' ? 'Masuk ke akun Anda' : mode === 'daftar' ? 'Buat akun' : 'Atur ulang kata sandi'}
           </h2>
           <p className="mt-1 text-sm text-slate-500">
-            {mode === 'masuk' ? 'Gunakan akun yang terdaftar di sekolah.' : 'Daftar untuk mulai mencatat supervisi.'}
+            {mode === 'masuk' && 'Gunakan akun yang sudah diaktifkan oleh admin sekolah.'}
+            {mode === 'daftar' && 'Setelah email diverifikasi, Anda memerlukan kode undangan dari admin sekolah untuk mengakses data.'}
+            {mode === 'reset' && 'Masukkan email akun Anda. Kami akan mengirim tautan untuk membuat kata sandi baru.'}
           </p>
 
-          <div className="mt-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1 text-sm font-semibold">
-            {(['masuk', 'daftar'] as const).map((m) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                className={cn('rounded-md py-2 capitalize transition', mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}
-              >
-                {m}
-              </button>
-            ))}
-          </div>
+          {mode !== 'reset' && (
+            <div className="mt-6 grid grid-cols-2 rounded-lg bg-slate-100 p-1 text-sm font-semibold" role="tablist" aria-label="Masuk atau daftar">
+              {(['masuk', 'daftar'] as const).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  role="tab"
+                  aria-selected={mode === m}
+                  onClick={() => ganti(m)}
+                  className={cn('rounded-md py-2 capitalize transition', mode === m ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-500')}
+                >
+                  {m}
+                </button>
+              ))}
+            </div>
+          )}
 
-          <form onSubmit={onSubmit} className="mt-6 space-y-4">
-            {mode === 'daftar' && (
-              <Field label="Nama lengkap" required>
-                {(p) => <Input {...p} name="nama" required autoComplete="name" />}
-              </Field>
-            )}
-            <Field label="Email" required>
-              {(p) => <Input {...p} name="email" type="email" required autoComplete="email" />}
-            </Field>
-            <Field label="Kata sandi" required hint={mode === 'daftar' ? 'Minimal 6 karakter.' : undefined}>
-              {(p) => (
-                <Input
-                  {...p}
-                  name="password"
-                  type="password"
-                  required
-                  minLength={6}
-                  autoComplete={mode === 'masuk' ? 'current-password' : 'new-password'}
-                />
+          {resetTerkirim ? (
+            <div role="status" className="mt-6 rounded-lg bg-emerald-50 p-4 text-sm text-emerald-900 ring-1 ring-emerald-200">
+              Jika email tersebut terdaftar, tautan untuk mengatur ulang kata sandi sudah dikirim. Periksa kotak masuk dan folder spam.
+            </div>
+          ) : (
+            <form onSubmit={onSubmit} className="mt-6 space-y-4">
+              {mode === 'daftar' && (
+                <Field label="Nama lengkap" required>
+                  {(p) => <Input {...p} name="nama" required autoComplete="name" />}
+                </Field>
               )}
-            </Field>
-            <Button type="submit" size="lg" className="w-full" loading={busy === 'email'} disabled={!!busy}>
-              {mode === 'masuk' ? 'Masuk' : 'Daftar'}
-            </Button>
-          </form>
+              <Field label="Email" required>
+                {(p) => <Input {...p} name="email" type="email" required autoComplete="email" />}
+              </Field>
+              {mode !== 'reset' && (
+                <Field label="Kata sandi" required hint={mode === 'daftar' ? 'Minimal 6 karakter.' : undefined}>
+                  {(p) => (
+                    <Input
+                      {...p}
+                      name="password"
+                      type="password"
+                      required
+                      minLength={6}
+                      autoComplete={mode === 'masuk' ? 'current-password' : 'new-password'}
+                    />
+                  )}
+                </Field>
+              )}
+              <Button type="submit" size="lg" className="w-full" loading={busy === 'email'} disabled={!!busy}>
+                {mode === 'masuk' ? 'Masuk' : mode === 'daftar' ? 'Daftar' : 'Kirim tautan'}
+              </Button>
+            </form>
+          )}
 
+          {mode === 'masuk' && (
+            <button type="button" onClick={() => ganti('reset')} className="mt-4 text-sm font-medium text-brand-700 hover:underline">
+              Lupa kata sandi?
+            </button>
+          )}
+          {mode === 'reset' && (
+            <button type="button" onClick={() => ganti('masuk')} className="mt-4 text-sm font-medium text-brand-700 hover:underline">
+              Kembali ke halaman masuk
+            </button>
+          )}
+
+          {mode !== 'reset' && (
+            <>
           <div className="my-6 flex items-center gap-3 text-xs text-slate-400">
             <div className="h-px flex-1 bg-slate-200" />
             atau
@@ -160,6 +198,8 @@ export default function LoginPage() {
             {busy !== 'google' && <GoogleIcon />}
             Lanjutkan dengan Google
           </Button>
+            </>
+          )}
         </div>
       </div>
     </div>

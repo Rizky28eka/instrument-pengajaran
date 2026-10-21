@@ -14,6 +14,7 @@ import {
   SEK_A,
   SEK_B,
   siapkanEnv,
+  SNAPSHOT_UJI,
   SV_A1,
   tulisSupervisi,
   ubahSupervisi,
@@ -149,7 +150,7 @@ describe('mengubah supervisi', () => {
     ['nama pembuat', { createdByName: 'Palsu' }],
     ['waktu pembuatan', { createdAt: Timestamp.fromMillis(0) }],
     ['versi instrumen', { versiInstrumen: 'baru-9' }],
-    ['snapshot instrumen', { instrumen: { versi: 'uji-1', nama: 'Diubah', status: 'resmi', ambang: [], aspek: [] } }],
+    ['snapshot instrumen', { instrumen: { ...SNAPSHOT_UJI, nama: 'Diubah' } }],
   ])('field yang tidak boleh berubah: %s', async (_nama, patch) => {
     await assertFails(ubah(sebagai('supA1'), 'supA1', patch))
   })
