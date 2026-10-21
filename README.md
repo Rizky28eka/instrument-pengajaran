@@ -25,14 +25,28 @@ Skrip lain: `npm run build` · `npm run typecheck` · `npm run lint` · `npm tes
 
 ## Setup Firebase
 
-1. Buat project di [Firebase Console](https://console.firebase.google.com), tambahkan **Web app**, salin konfigurasinya ke `.env.local`.
-2. **Authentication → Sign-in method:** aktifkan *Email/Password* dan *Google*.
-3. **Firestore Database:** buat database, lalu terapkan aturan keamanan:
-   ```bash
-   npx firebase-tools deploy --only firestore:rules
-   ```
-   Aturan di [firestore.rules](firestore.rules): semua pengguna login dapat membaca; hanya pembuat dokumen yang dapat mengubah/menghapus.
-4. (Opsional) Deploy: `npm run build && npx firebase-tools deploy --only hosting`.
+Project sudah dibuat: **`instrumen-supervisi-smp`** ([console](https://console.firebase.google.com/project/instrumen-supervisi-smp/overview)), terhubung lewat [.firebaserc](.firebaserc). Firestore (`asia-southeast2`) aktif dan aturannya sudah ter-deploy.
+
+Di mesin baru:
+
+```bash
+npm install
+firebase apps:sdkconfig WEB 1:599822176340:web:87b1b9bffb646e918bddc1 --project instrumen-supervisi-smp
+# salin nilainya ke .env.local mengikuti format .env.example
+npm run dev
+```
+
+**Wajib dilakukan manual sekali** — [Authentication → Sign-in method](https://console.firebase.google.com/project/instrumen-supervisi-smp/authentication/providers): klik *Get started*, lalu aktifkan *Email/Password* dan *Google* (pilih email dukungan project). Tanpa ini halaman login akan menampilkan galat.
+
+Untuk domain produksi, tambahkan domain tersebut di *Authentication → Settings → Authorized domains*.
+
+Aturan keamanan di [firestore.rules](firestore.rules): semua pengguna login dapat membaca; hanya pembuat dokumen yang dapat mengubah/menghapus. Deploy ulang setelah mengubahnya:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+Hosting (opsional): `npm run build && firebase deploy --only hosting`.
 
 ## Struktur data
 
