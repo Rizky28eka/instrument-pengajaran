@@ -6,47 +6,26 @@ Aplikasi web digital untuk supervisi akademik guru **SMP · Kurikulum Merdeka**,
 
 ## Fitur
 
-- Login email/kata sandi atau Google (Firebase Auth)
-- Form supervisi bertahap: identitas → 5 aspek (skala 1–4) → catatan & rekomendasi
-- Nilai, predikat, dan skor per aspek dihitung otomatis; draf tersimpan otomatis di browser
-- Dashboard: rata-rata nilai, capaian per aspek, distribusi predikat, guru yang perlu pendampingan
-- Daftar data dengan pencarian & filter, detail, ubah, hapus, **cetak** (A4) dan **ekspor CSV** (siap impor ke Google Sheets)
-- Cache offline Firestore untuk koneksi sekolah yang kurang stabil
+- Akses per sekolah: akun baru **tidak punya akses** sampai menebus kode undangan dari admin sekolah; email wajib terverifikasi
+- Form supervisi bertahap (identitas → 5 aspek skala 1–4 → catatan), nilai/predikat otomatis, draf aman di perangkat
+- Instrumen **berversi**: tiap dokumen menyimpan snapshot instrumennya; status `provisional` ditandai jelas di UI
+- Master data guru (nonaktifkan, tidak dihapus), riwayat dan tren per guru
+- Tindak lanjut terstruktur (status, penanggung jawab, tenggat, catatan, riwayat) + ringkasan dashboard
+- Soft-delete + pemulihan oleh admin, riwayat perubahan, perlindungan terhadap penimpaan (lost update)
+- Ekspor CSV (aman dari formula injection) dan cetak A4
 
 ## Menjalankan
 
 ```bash
 npm install
-cp .env.example .env.local   # isi dengan kredensial Web App Firebase
+cp .env.example .env.local   # isi dari Firebase Console (lihat docs/OPERASIONAL.md untuk bootstrap sekolah + admin)
 npm run dev
 ```
 
-Skrip lain: `npm run build` · `npm run typecheck` · `npm run lint` · `npm test`
+Pengujian: `npm run check` (cepat) · `npm run test:rules` (emulator; butuh Java + `firebase-tools`) · `npm run test:e2e` (Playwright, Chrome terpasang).
 
-## Setup Firebase
-
-Project sudah dibuat: **`instrumen-supervisi-smp`** ([console](https://console.firebase.google.com/project/instrumen-supervisi-smp/overview)), terhubung lewat [.firebaserc](.firebaserc). Firestore (`asia-southeast2`) aktif dan aturannya sudah ter-deploy.
-
-Di mesin baru:
-
-```bash
-npm install
-firebase apps:sdkconfig WEB 1:599822176340:web:87b1b9bffb646e918bddc1 --project instrumen-supervisi-smp
-# salin nilainya ke .env.local mengikuti format .env.example
-npm run dev
-```
-
-**Wajib dilakukan manual sekali** — [Authentication → Sign-in method](https://console.firebase.google.com/project/instrumen-supervisi-smp/authentication/providers): klik *Get started*, lalu aktifkan *Email/Password* dan *Google* (pilih email dukungan project). Tanpa ini halaman login akan menampilkan galat.
-
-Untuk domain produksi, tambahkan domain tersebut di *Authentication → Settings → Authorized domains*.
-
-Aturan keamanan di [firestore.rules](firestore.rules): semua pengguna login dapat membaca; hanya pembuat dokumen yang dapat mengubah/menghapus. Deploy ulang setelah mengubahnya:
-
-```bash
-firebase deploy --only firestore:rules
-```
-
-Hosting (opsional): `npm run build && firebase deploy --only hosting`.
+> **Penting sebelum dipakai nyata:** baca [docs/OPERASIONAL.md](docs/OPERASIONAL.md) — urutan deploy rules/indeks,
+> pembuatan admin pertama, region database (`nam5`, bukan Jakarta), pemulihan data, dan hal yang belum dikerjakan.
 
 ## Struktur data
 
