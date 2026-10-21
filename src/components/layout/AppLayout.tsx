@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
-import { BookOpen, ClipboardList, FilePlus, GraduationCap, LayoutDashboard, LogOut, Menu, UsersRound, X } from 'lucide-react'
+import { BookOpen, ClipboardList, FilePlus, GraduationCap, LayoutDashboard, ListChecks, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/auth-context'
 import { useKeluar } from '@/features/auth/useKeluar'
 import { cn } from '@/lib/utils'
@@ -9,7 +9,9 @@ const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/supervisi', label: 'Data Supervisi', icon: ClipboardList, end: true },
   { to: '/supervisi/baru', label: 'Supervisi Baru', icon: FilePlus, end: true },
+  { to: '/tindak-lanjut', label: 'Tindak Lanjut', icon: ListChecks, end: true },
   { to: '/guru', label: 'Guru', icon: UsersRound, end: true },
+  { to: '/pengguna', label: 'Pengguna', icon: ShieldCheck, end: true, adminSaja: true },
   { to: '/instrumen', label: 'Instrumen', icon: BookOpen, end: true },
 ]
 
@@ -35,7 +37,7 @@ function Sidebar({ onNavigate, onKeluar }: { onNavigate?: () => void; onKeluar: 
     <div className="flex h-full flex-col gap-6 p-4">
       <Brand />
       <nav className="flex flex-1 flex-col gap-1">
-        {NAV.map(({ to, label, icon: Icon, end }) => (
+        {NAV.filter((n) => !n.adminSaja || profil?.role === 'admin').map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}

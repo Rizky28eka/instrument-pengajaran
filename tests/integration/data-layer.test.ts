@@ -6,6 +6,7 @@ import { daftarGuru, tambahGuru, ubahGuru, type Guru } from '@/features/guru/api
 import {
   ambilDihapus,
   ambilHalaman,
+  ambilPerGuru,
   ambilRiwayat,
   ambilSupervisi,
   ambilTerbaru,
@@ -188,6 +189,30 @@ describe('supervisi — alur nyata terhadap Rules', () => {
     const semua = [...h1.item, ...h2.item].map((x) => x.id)
     expect(new Set(semua).size).toBe(semua.length)
     expect(semua.length).toBeGreaterThanOrEqual(30) // 30 baru + dokumen awal sekolah A
+  })
+})
+
+describe('riwayat per guru', () => {
+  it('mengembalikan hanya supervisi guru itu, terbaru dulu, tanpa yang sudah dihapus', async () => {
+    const a = await bikin(supA1, nilaiForm(2, { identitas: { ...nilaiForm().identitas, tanggal: '2026-03-01' } }))
+    const b = await bikin(supA1, nilaiForm(4, { identitas: { ...nilaiForm().identitas, tanggal: '2026-09-01' } }))
+    const c = await bikin(supA1, nilaiForm(3, { identitas: { ...nilaiForm().identitas, tanggal: '2026-06-01' } }))
+    await hapusSupervisi((await ambilSupervisi(c))!, supA1)
+
+    const hasil = await ambilPerGuru(SEK_A, GURU_A1)
+    const ids = hasil.map((x) => x.id)
+    expect(ids).toContain(a)
+    expect(ids).toContain(b)
+    expect(ids).not.toContain(c)
+    const tanggal = hasil.map((x) => x.identitas.tanggal)
+    expect(tanggal).toEqual([...tanggal].sort().reverse())
+    expect(hasil.every((x) => x.guruId === GURU_A1)).toBe(true)
+  })
+
+  it('guru lain tidak tercampur dan sekolah lain ditolak', async () => {
+    await bikin()
+    expect(await ambilPerGuru(SEK_A, 'guru-tidak-ada')).toEqual([])
+    await expect(ambilPerGuru(SEK_B, GURU_B1)).rejects.toMatchObject({ code: 'permission-denied' })
   })
 })
 

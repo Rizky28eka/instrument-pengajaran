@@ -15,8 +15,8 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase'
 import { ambilSnapshot, INSTRUMEN_AKTIF, type Instrumen } from '@/data/instrumen'
-import { PesanAplikasi } from '@/features/auth/actions'
 import type { Guru } from '@/features/guru/api'
+import { terjemahkanPenolakan } from '@/lib/penolakan'
 import { hitungRingkasan, type Ringkasan } from '@/lib/scoring'
 import { dokumenKeSupervisi, type Supervisi } from './mapper'
 import type { SupervisiFormValues } from './schema'
@@ -69,6 +69,14 @@ export async function ambilTerbaru(schoolId: string, batas = BATAS_TERBARU): Pro
   return { item: snap.docs.map((d) => dokumenKeSupervisi(d.id, d.data())), terpotong: snap.size >= batas }
 }
 
+/** Riwayat supervisi satu guru (terbaru dulu), dikaitkan lewat ID guru sehingga ganti nama tidak memutusnya. */
+export async function ambilPerGuru(schoolId: string, guruId: string, batas = 100): Promise<Supervisi[]> {
+  const snap = await getDocs(
+    query(supervisiCol(), ...aktifSekolah(schoolId), where('guruId', '==', guruId), orderBy('identitas.tanggal', 'desc'), limit(batas)),
+  )
+  return snap.docs.map((d) => dokumenKeSupervisi(d.id, d.data()))
+}
+
 /** Tempat sampah (soft-delete). Hanya admin yang diizinkan Rules membacanya. */
 export async function ambilDihapus(schoolId: string): Promise<Supervisi[]> {
   const snap = await getDocs(
@@ -116,19 +124,6 @@ const entriRiwayat = (aksi: EntriRiwayat['aksi'], rev: number, p: Pelaku, ringka
   rev,
   ...(ringkasan ? { ringkasan: { nilai: ringkasan.nilai, predikat: ringkasan.predikat } } : {}),
 })
-
-/**
- * Perubahan data selalu sepaket dengan entri riwayat (satu batch atomik). Rules menolak perubahan
- * tanpa riwayat atau dengan nomor revisi yang usang — menolak penimpaan diam-diam (lost update).
- */
-function terjemahkanPenolakan(e: unknown): never {
-  if ((e as { code?: string }).code === 'permission-denied') {
-    throw new PesanAplikasi(
-      'Perubahan ditolak. Data mungkin sudah diubah oleh pengguna lain atau Anda tidak berhak mengubahnya. Muat ulang halaman lalu coba lagi.',
-    )
-  }
-  throw e
-}
 
 export interface MasukanBuat {
   values: SupervisiFormValues

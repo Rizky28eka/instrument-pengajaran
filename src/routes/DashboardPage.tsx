@@ -16,6 +16,8 @@ import { PanelGalat } from '@/components/ui/PanelGalat'
 import type { Supervisi } from '@/features/supervisi/api'
 import { BATAS_TERBARU } from '@/features/supervisi/api'
 import { useSupervisiTerbaru } from '@/features/supervisi/queries'
+import { ringkasTindakLanjut } from '@/features/tindak-lanjut/logic'
+import { useTindakLanjutSekolah } from '@/features/tindak-lanjut/queries'
 import { PREDIKAT, predikatDari } from '@/lib/scoring'
 import { cn, formatNilai, formatTanggal, hariIniISO } from '@/lib/utils'
 
@@ -61,6 +63,8 @@ export default function DashboardPage() {
   const terbaru = useSupervisiTerbaru()
   const data = useMemo(() => terbaru.data?.item ?? [], [terbaru.data])
   const s = useMemo(() => hitungStatistik(data), [data])
+  const tindak = useTindakLanjutSekolah()
+  const ringkasTindak = useMemo(() => (tindak.data ? ringkasTindakLanjut(tindak.data.item, hariIniISO()) : null), [tindak.data])
   const sapaan = profil?.nama?.split(' ')[0]
 
   const tombolBaru = (
@@ -223,6 +227,42 @@ export default function DashboardPage() {
               )}
             </Card>
           </div>
+
+          <Card>
+            <CardHeader
+              title="Tindak lanjut"
+              description="Rencana pendampingan dari hasil supervisi."
+              action={
+                <Link to="/tindak-lanjut" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-700">
+                  Kelola <ArrowRight className="size-4" />
+                </Link>
+              }
+            />
+            {tindak.isError ? (
+              <p role="alert" className="px-5 py-6 text-sm text-slate-500">
+                Ringkasan tindak lanjut belum dapat dimuat.{' '}
+                <button type="button" className="font-semibold text-brand-700 underline" onClick={() => void tindak.refetch()}>Coba lagi</button>
+              </p>
+            ) : !ringkasTindak ? (
+              <p className="px-5 py-6 text-sm text-slate-500">Memuat…</p>
+            ) : ringkasTindak.total === 0 ? (
+              <p className="px-5 py-6 text-sm text-slate-500">Belum ada tindak lanjut. Buat dari halaman detail supervisi.</p>
+            ) : (
+              <dl className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
+                {[
+                  ['Masih berjalan', ringkasTindak.aktif, false],
+                  ['Terlambat', ringkasTindak.terlambat, true],
+                  ['Selesai', ringkasTindak.perStatus.selesai, false],
+                  ['Total', ringkasTindak.total, false],
+                ].map(([label, nilai, peringatan]) => (
+                  <div key={String(label)}>
+                    <dt className="text-sm text-slate-500">{label}</dt>
+                    <dd className={cn('mt-1 text-2xl font-bold tabular-nums', peringatan && Number(nilai) > 0 ? 'text-rose-700' : 'text-slate-900')}>{nilai}</dd>
+                  </div>
+                ))}
+              </dl>
+            )}
+          </Card>
         </div>
       )}
     </>
