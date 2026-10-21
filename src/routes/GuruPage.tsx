@@ -1,8 +1,10 @@
 import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
-import { Pencil, Plus, UserRound } from 'lucide-react'
+import { Link } from 'react-router'
+import { History, Pencil, Plus, UserRound } from 'lucide-react'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
+import { buttonClass } from '@/components/ui/button-styles'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { Field, Input } from '@/components/ui/Field'
@@ -103,6 +105,9 @@ export default function GuruPage() {
                   <span className={cn('rounded-full px-2.5 py-0.5 text-xs font-semibold', g.aktif ? 'bg-emerald-50 text-emerald-700' : 'bg-slate-100 text-slate-600')}>
                     {g.aktif ? 'Aktif' : 'Nonaktif'}
                   </span>
+                  <Link to={`/guru/${g.id}`} className={buttonClass({ variant: 'ghost', size: 'sm' })} aria-label={`Riwayat supervisi ${g.nama}`}>
+                    <History /> Riwayat
+                  </Link>
                   <Button size="sm" variant="secondary" onClick={() => setForm({ awal: g })} aria-label={`Ubah ${g.nama}`}>
                     <Pencil /> Ubah
                   </Button>

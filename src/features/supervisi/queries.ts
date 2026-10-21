@@ -6,6 +6,7 @@ import { PesanAplikasi } from '@/features/auth/actions'
 import {
   ambilDihapus,
   ambilHalaman,
+  ambilPerGuru,
   ambilRiwayat,
   ambilSupervisi,
   ambilTerbaru,
@@ -36,6 +37,11 @@ export function useSupervisiHalaman() {
     initialPageParam: null as Parameters<typeof ambilHalaman>[1],
     getNextPageParam: (terakhir) => (terakhir.adaLagi ? terakhir.kursor : undefined),
   })
+}
+
+export function useSupervisiPerGuru(guruId: string) {
+  const { schoolId } = useProfilAktif()
+  return useQuery({ queryKey: [...supervisiKeys.semua(schoolId), 'guru', guruId] as const, queryFn: () => ambilPerGuru(schoolId, guruId) })
 }
 
 export function useSupervisiTerbaru() {

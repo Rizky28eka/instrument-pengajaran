@@ -17,6 +17,7 @@ import { useProfilAktif } from '@/features/auth/auth-context'
 import { RiwayatPanel } from '@/features/supervisi/components/RiwayatPanel'
 import { NilaiAkhir, TabelRingkasan } from '@/features/supervisi/components/RingkasanSkor'
 import { downloadCsv } from '@/features/supervisi/csv'
+import { TindakLanjutPanel } from '@/features/tindak-lanjut/components/TindakLanjutPanel'
 import { useHapusSupervisi, usePulihkanSupervisi, useSupervisi } from '@/features/supervisi/queries'
 import { cn, formatTanggal } from '@/lib/utils'
 
@@ -244,6 +245,10 @@ export default function SupervisiDetailPage() {
             ))}
           </dl>
         </Card>
+
+        {!terhapus && (
+          <TindakLanjutPanel rujukan={{ id, schoolId: data.schoolId, guruId: data.guruId, guruNama: data.guruNama }} boleh />
+        )}
 
         <RiwayatPanel id={id} />
 
