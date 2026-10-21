@@ -2,6 +2,12 @@
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
+  --font-serif: 'Literata', Georgia, 'Times New Roman', serif;
+  --font-hand: 'Kalam', 'Comic Sans MS', cursive;
+
+  --color-ink: #12233f;
+  --color-paper: #f6f7f4;
+  --color-margin: #c93d3d;
 
   --color-brand-50: oklch(0.962 0.018 272.3);
   --color-brand-100: oklch(0.93 0.034 272.8);
@@ -27,6 +33,12 @@
 }
 
 @layer base {
+  @media (prefers-reduced-motion: no-preference) {
+    html {
+      scroll-behavior: smooth;
+    }
+  }
+
   html {
     @apply bg-slate-50 text-slate-800 antialiased;
   }
