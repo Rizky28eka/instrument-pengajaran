@@ -1,8 +1,33 @@
 import { semuaIndikator } from '@/data/instrumen'
 import type { Supervisi } from './api'
 
-const sel = (v: unknown) => {
-  const s = v == null ? '' : String(v)
+/**
+ * Pencegahan CSV / formula injection.
+ *
+ * Excel, LibreOffice, dan Google Sheets menjalankan sel yang diawali `=`, `+`, `-`, `@`
+ * (juga yang didahului spasi, tab, atau karakter kontrol). Sel TEKS seperti itu diawali
+ * tanda kutip tunggal sehingga dibaca sebagai teks. Angka sungguhan (tipe number) tidak diubah.
+ *
+ * Keterbatasan: pada impor CSV, sebagian aplikasi (mis. Excel) menampilkan tanda kutip itu
+ * secara harfiah. Itu harga yang disengaja agar isian pengguna tidak pernah dieksekusi.
+ */
+// oxlint-disable-next-line no-control-regex -- karakter kontrol memang yang dicari
+const AWAL_BERBAHAYA = /^[\s\u0000-\u001f\u007f\u200b\ufeff]*[=+\-@]/
+// Karakter kontrol C0 selain tab, LF, CR.
+// oxlint-disable-next-line no-control-regex -- karakter kontrol memang yang dibuang
+const KONTROL = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/g
+
+export function amankanTeks(teks: string): string {
+  const bersih = teks
+    .replace(/\r\n?|\u2028|\u2029/g, '\n') // satukan pemisah baris
+    .replace(KONTROL, '')
+  return AWAL_BERBAHAYA.test(bersih) ? "'" + bersih : bersih
+}
+
+/** Mengubah satu nilai menjadi sel CSV (RFC 4180): kutip bila memuat koma, kutip, atau baris baru. */
+export function sel(v: unknown): string {
+  if (v == null) return ''
+  const s = typeof v === 'number' || typeof v === 'boolean' ? String(v) : amankanTeks(String(v))
   return /[",\n\r]/.test(s) ? '"' + s.replaceAll('"', '""') + '"' : s
 }
 
