@@ -1,19 +1,40 @@
-import { ASPEK, SKOR_MAKS_TOTAL } from '@/data/instrumen'
+import {
+  INSTRUMEN_AKTIF,
+  SKOR_MAKS_INDIKATOR,
+  SKOR_MIN,
+  skorMaksTotal,
+  type AmbangPredikat,
+  type Instrumen,
+  type Predikat,
+} from '@/data/instrumen'
 
-export type Predikat = 'Sangat Baik' | 'Baik' | 'Cukup' | 'Perlu Perbaikan'
+export type { Predikat }
 
 export const PREDIKAT: Predikat[] = ['Sangat Baik', 'Baik', 'Cukup', 'Perlu Perbaikan']
 
-/** Batas bawah nilai (0–100) untuk tiap predikat. */
-export const BATAS_PREDIKAT: { predikat: Predikat; min: number }[] = [
-  { predikat: 'Sangat Baik', min: 86 },
-  { predikat: 'Baik', min: 71 },
-  { predikat: 'Cukup', min: 56 },
-  { predikat: 'Perlu Perbaikan', min: 0 },
-]
+/** Ambang predikat instrumen aktif — untuk antarmuka yang menjelaskan konversi nilai. */
+export const BATAS_PREDIKAT: AmbangPredikat[] = INSTRUMEN_AKTIF.ambang
 
-export function predikatDari(nilai: number): Predikat {
-  return BATAS_PREDIKAT.find((b) => nilai >= b.min)!.predikat
+const bulat2 = (n: number) => Math.round(n * 100) / 100
+
+/** Skor valid: bilangan bulat pada skala instrumen. */
+export const skorValid = (v: unknown): v is number =>
+  typeof v === 'number' && Number.isInteger(v) && v >= SKOR_MIN && v <= SKOR_MAKS_INDIKATOR
+
+/**
+ * Predikat dari total/maks dengan perbandingan bilangan bulat, bukan dari nilai yang
+ * sudah dibulatkan — 85,996 tidak boleh naik ke "86" hanya karena pembulatan.
+ */
+export function predikatDariSkor(total: number, maks: number, ambang: AmbangPredikat[] = INSTRUMEN_AKTIF.ambang): Predikat {
+  const urut = [...ambang].sort((a, b) => b.min - a.min)
+  if (maks <= 0) return urut[urut.length - 1].predikat
+  return (urut.find((b) => total * 100 >= b.min * maks) ?? urut[urut.length - 1]).predikat
+}
+
+/** Predikat dari nilai 0–100 yang sudah jadi (mis. rata-rata di dashboard). */
+export function predikatDari(nilai: number, ambang: AmbangPredikat[] = INSTRUMEN_AKTIF.ambang): Predikat {
+  const urut = [...ambang].sort((a, b) => b.min - a.min)
+  return (urut.find((b) => nilai >= b.min) ?? urut[urut.length - 1]).predikat
 }
 
 export interface SkorAspek {
@@ -34,20 +55,19 @@ export interface Ringkasan {
   perAspek: Record<string, SkorAspek>
 }
 
-const bulat = (n: number) => Math.round(n * 100) / 100
-
-export function hitungRingkasan(skor: Partial<Record<string, number>>): Ringkasan {
+/** Hanya skor valid yang dihitung; nilai di luar skala atau bukan angka diabaikan. */
+export function hitungRingkasan(skor: Partial<Record<string, number>>, instrumen: Instrumen = INSTRUMEN_AKTIF): Ringkasan {
   const perAspek: Record<string, SkorAspek> = {}
   let total = 0
   let terisi = 0
   let jumlah = 0
 
-  for (const aspek of ASPEK) {
+  for (const aspek of instrumen.aspek) {
     let t = 0
     let n = 0
     for (const ind of aspek.indikator) {
       const v = skor[ind.id]
-      if (typeof v === 'number') {
+      if (skorValid(v)) {
         t += v
         n++
       }
@@ -55,7 +75,7 @@ export function hitungRingkasan(skor: Partial<Record<string, number>>): Ringkasa
     perAspek[aspek.id] = {
       total: t,
       maks: aspek.skorMaks,
-      nilai: bulat((t / aspek.skorMaks) * 100),
+      nilai: aspek.skorMaks ? bulat2((t / aspek.skorMaks) * 100) : 0,
       terisi: n,
       jumlah: aspek.indikator.length,
     }
@@ -64,6 +84,14 @@ export function hitungRingkasan(skor: Partial<Record<string, number>>): Ringkasa
     jumlah += aspek.indikator.length
   }
 
-  const nilai = bulat((total / SKOR_MAKS_TOTAL) * 100)
-  return { total, maks: SKOR_MAKS_TOTAL, nilai, predikat: predikatDari(nilai), terisi, jumlah, perAspek }
+  const maks = skorMaksTotal(instrumen)
+  return {
+    total,
+    maks,
+    nilai: maks ? bulat2((total / maks) * 100) : 0,
+    predikat: predikatDariSkor(total, maks, instrumen.ambang),
+    terisi,
+    jumlah,
+    perAspek,
+  }
 }

@@ -1,13 +1,14 @@
 import { useFormContext, useWatch } from 'react-hook-form'
 import { Field, Textarea } from '@/components/ui/Field'
+import type { Instrumen } from '@/data/instrumen'
 import { hitungRingkasan } from '@/lib/scoring'
 import type { SupervisiFormInput } from '../schema'
 import { NilaiAkhir, TabelRingkasan } from './RingkasanSkor'
 
-export function CatatanStep() {
+export function CatatanStep({ instrumen }: { instrumen: Instrumen }) {
   const { control, register } = useFormContext<SupervisiFormInput>()
   const skor = useWatch({ control, name: 'skor' })
-  const ringkasan = hitungRingkasan(skor ?? {})
+  const ringkasan = hitungRingkasan(skor ?? {}, instrumen)
 
   return (
     <div className="space-y-6">
@@ -20,7 +21,7 @@ export function CatatanStep() {
         )}
       </div>
 
-      <TabelRingkasan ringkasan={ringkasan} />
+      <TabelRingkasan ringkasan={ringkasan} instrumen={instrumen} />
 
       <div className="grid gap-5">
         <Field label="Kekuatan guru" hint="Hal-hal yang sudah berjalan sangat baik.">

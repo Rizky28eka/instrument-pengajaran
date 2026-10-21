@@ -13,6 +13,7 @@ import { pesanError } from '@/features/auth/actions'
 import { useAuth } from '@/features/auth/auth-context'
 import { SupervisiForm } from '@/features/supervisi/components/SupervisiForm'
 import { useSaveSupervisi, useSupervisi } from '@/features/supervisi/queries'
+import { INSTRUMEN_AKTIF, type Instrumen } from '@/data/instrumen'
 import type { SupervisiFormInput, SupervisiFormValues } from '@/features/supervisi/schema'
 import { hariIniISO } from '@/lib/utils'
 
@@ -49,12 +50,12 @@ export default function SupervisiFormPage() {
   return id ? <EditSupervisi id={id} /> : <SupervisiBaru />
 }
 
-function useSimpan(id?: string) {
+function useSimpan(id?: string, instrumen?: Instrumen) {
   const save = useSaveSupervisi()
   const navigate = useNavigate()
   return async (values: SupervisiFormValues) => {
     try {
-      const savedId = await save.mutateAsync({ id, values })
+      const savedId = await save.mutateAsync({ id, values, instrumen })
       toast.success(id ? 'Perubahan disimpan.' : 'Hasil supervisi tersimpan.')
       navigate(`/supervisi/${savedId}`, { replace: true })
     } catch (e) {
@@ -89,6 +90,7 @@ function SupervisiBaru() {
         </div>
       )}
       <SupervisiForm
+        instrumen={INSTRUMEN_AKTIF}
         key={awal.versi}
         defaultValues={awal.nilai}
         draftKey={draftKey}
@@ -102,7 +104,7 @@ function SupervisiBaru() {
 function EditSupervisi({ id }: { id: string }) {
   const { user } = useAuth()
   const { data, isPending } = useSupervisi(id)
-  const simpan = useSimpan(id)
+  const simpan = useSimpan(id, data?.instrumen)
 
   if (isPending) return <PageLoader />
   if (!data)
@@ -127,6 +129,7 @@ function EditSupervisi({ id }: { id: string }) {
     <>
       <PageHeader title="Ubah Supervisi" description={`${data.identitas.namaGuru} · ${data.identitas.mataPelajaran}`} />
       <SupervisiForm
+        instrumen={data.instrumen}
         defaultValues={{ identitas: data.identitas, skor: data.skor, catatanAspek: data.catatanAspek, catatan: data.catatan }}
         onSubmit={simpan}
         submitLabel="Simpan Perubahan"

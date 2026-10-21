@@ -1,4 +1,4 @@
-import { ASPEK } from '@/data/instrumen'
+import type { Instrumen } from '@/data/instrumen'
 import { PredikatBadge } from '@/components/ui/PredikatBadge'
 import { PREDIKAT_STYLE } from '@/components/ui/predikat-style'
 import { ProgressBar } from '@/components/ui/ProgressBar'
@@ -6,7 +6,7 @@ import type { Ringkasan } from '@/lib/scoring'
 import { cn, formatNilai } from '@/lib/utils'
 
 /** Tabel skor per aspek + total; dipakai di langkah terakhir form dan halaman detail. */
-export function TabelRingkasan({ ringkasan }: { ringkasan: Ringkasan }) {
+export function TabelRingkasan({ ringkasan, instrumen }: { ringkasan: Ringkasan; instrumen: Instrumen }) {
   return (
     <div className="overflow-hidden rounded-xl ring-1 ring-slate-200">
       <table className="w-full text-sm">
@@ -18,7 +18,7 @@ export function TabelRingkasan({ ringkasan }: { ringkasan: Ringkasan }) {
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100">
-          {ASPEK.map((a) => {
+          {instrumen.aspek.map((a) => {
             const s = ringkasan.perAspek[a.id]
             return (
               <tr key={a.id}>

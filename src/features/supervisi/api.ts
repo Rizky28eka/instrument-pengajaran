@@ -9,62 +9,36 @@ import {
   query,
   serverTimestamp,
   updateDoc,
-  type DocumentSnapshot,
 } from 'firebase/firestore'
 import type { User } from 'firebase/auth'
 import { db } from '@/lib/firebase'
-import { hitungRingkasan, type Ringkasan } from '@/lib/scoring'
-import type { Identitas, SupervisiFormValues } from './schema'
+import { ambilSnapshot, INSTRUMEN_AKTIF, type Instrumen } from '@/data/instrumen'
+import { hitungRingkasan } from '@/lib/scoring'
+import { dokumenKeSupervisi, type Supervisi } from './mapper'
+import type { SupervisiFormValues } from './schema'
 
-export interface Supervisi {
-  id: string
-  identitas: Identitas
-  skor: Record<string, number>
-  catatanAspek: Record<string, string>
-  catatan: SupervisiFormValues['catatan']
-  ringkasan: Ringkasan
-  createdBy: string
-  createdByName: string
-  createdAt: Date | null
-  updatedAt: Date | null
-}
+export type { Supervisi }
 
 const COLLECTION = 'supervisi'
 const supervisiCol = collection(db, COLLECTION)
 
-function fromSnapshot(snap: DocumentSnapshot): Supervisi {
-  const d = snap.data()!
-  const skor = (d.skor ?? {}) as Record<string, number>
-  return {
-    id: snap.id,
-    identitas: d.identitas,
-    skor,
-    catatanAspek: d.catatanAspek ?? {},
-    catatan: { kekuatan: '', perbaikan: '', rekomendasi: '', ...d.catatan },
-    // Dihitung ulang agar selalu konsisten dengan master instrumen terbaru.
-    ringkasan: hitungRingkasan(skor),
-    createdBy: d.createdBy,
-    createdByName: d.createdByName ?? '',
-    createdAt: d.createdAt?.toDate?.() ?? null,
-    updatedAt: d.updatedAt?.toDate?.() ?? null,
-  }
-}
-
 export async function listSupervisi(): Promise<Supervisi[]> {
   const snap = await getDocs(query(supervisiCol, orderBy('identitas.tanggal', 'desc')))
-  return snap.docs.map(fromSnapshot)
+  return snap.docs.map((d) => dokumenKeSupervisi(d.id, d.data()))
 }
 
 export async function getSupervisi(id: string): Promise<Supervisi | null> {
   const snap = await getDoc(doc(db, COLLECTION, id))
-  return snap.exists() ? fromSnapshot(snap) : null
+  return snap.exists() ? dokumenKeSupervisi(snap.id, snap.data()) : null
 }
 
 export async function createSupervisi(values: SupervisiFormValues, user: User): Promise<string> {
   const ref = await addDoc(supervisiCol, {
     ...values,
+    versiInstrumen: INSTRUMEN_AKTIF.versi,
+    instrumen: ambilSnapshot(INSTRUMEN_AKTIF),
     // Ringkasan ikut disimpan agar mudah dibaca dari Firestore console / ekspor eksternal.
-    ringkasan: hitungRingkasan(values.skor),
+    ringkasan: hitungRingkasan(values.skor, INSTRUMEN_AKTIF),
     createdBy: user.uid,
     createdByName: user.displayName ?? user.email ?? '',
     createdAt: serverTimestamp(),
@@ -73,10 +47,11 @@ export async function createSupervisi(values: SupervisiFormValues, user: User): 
   return ref.id
 }
 
-export async function updateSupervisi(id: string, values: SupervisiFormValues): Promise<void> {
+export async function updateSupervisi(id: string, values: SupervisiFormValues, instrumen: Instrumen): Promise<void> {
+  // Instrumen dokumen TIDAK diganti saat diubah: versi dan snapshot tetap seperti saat dibuat.
   await updateDoc(doc(db, COLLECTION, id), {
     ...values,
-    ringkasan: hitungRingkasan(values.skor),
+    ringkasan: hitungRingkasan(values.skor, instrumen),
     updatedAt: serverTimestamp(),
   })
 }

@@ -1,21 +1,24 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FormProvider, useForm, useWatch, type Control } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Check, ChevronLeft, ChevronRight, Save } from 'lucide-react'
-import { ASPEK } from '@/data/instrumen'
+import type { Instrumen } from '@/data/instrumen'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
+import { InstrumenNotice } from '@/components/ui/InstrumenNotice'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { hitungRingkasan } from '@/lib/scoring'
 import { cn, formatNilai } from '@/lib/utils'
-import { supervisiSchema, type SupervisiFormInput, type SupervisiFormValues } from '../schema'
+import { buatSupervisiSchema, type SupervisiFormInput, type SupervisiFormValues } from '../schema'
 import { AspekStep } from './AspekStep'
 import { CatatanStep } from './CatatanStep'
 import { IdentitasStep } from './IdentitasStep'
-import { LANGKAH, langkahDenganError } from './form-steps'
+import { buatLangkah, langkahDenganError, type Langkah } from './form-steps'
 
 interface Props {
+  /** Instrumen yang dipakai dokumen ini (aktif untuk data baru, snapshot untuk data lama). */
+  instrumen: Instrumen
   defaultValues: SupervisiFormInput
   onSubmit: (values: SupervisiFormValues) => Promise<void>
   submitLabel: string
@@ -23,15 +26,17 @@ interface Props {
   draftKey?: string
 }
 
-export function SupervisiForm({ defaultValues, onSubmit, submitLabel, draftKey }: Props) {
+export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel, draftKey }: Props) {
+  const schema = useMemo(() => buatSupervisiSchema(instrumen), [instrumen])
+  const daftarLangkah = useMemo(() => buatLangkah(instrumen), [instrumen])
   const form = useForm<SupervisiFormInput, unknown, SupervisiFormValues>({
-    resolver: zodResolver(supervisiSchema),
+    resolver: zodResolver(schema),
     defaultValues,
     mode: 'onTouched',
   })
   const [step, setStep] = useState(0)
-  const langkah = LANGKAH[step]
-  const terakhir = step === LANGKAH.length - 1
+  const langkah = daftarLangkah[step]
+  const terakhir = step === daftarLangkah.length - 1
 
   useEffect(() => {
     if (!draftKey) return
@@ -64,13 +69,13 @@ export function SupervisiForm({ defaultValues, onSubmit, submitLabel, draftKey }
       if (draftKey) localStorage.removeItem(draftKey)
     },
     (errors) => {
-      const i = langkahDenganError(errors)
+      const i = langkahDenganError(daftarLangkah, instrumen, errors)
       if (i >= 0) pindah(i)
       toast.error('Periksa kembali isian yang belum lengkap.')
     },
   )
 
-  const aspek = ASPEK.find((a) => a.id === langkah.id)
+  const aspek = instrumen.aspek.find((a) => a.id === langkah.id)
 
   return (
     <FormProvider {...form}>
@@ -78,19 +83,20 @@ export function SupervisiForm({ defaultValues, onSubmit, submitLabel, draftKey }
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
             <p className="text-xs font-semibold text-brand-600">
-              Langkah {step + 1} dari {LANGKAH.length}
+              Langkah {step + 1} dari {daftarLangkah.length}
             </p>
             <h2 className="mt-0.5 text-lg font-bold text-slate-900">
               {aspek ? `${aspek.kode}. ${aspek.judul}` : langkah.judul}
             </h2>
             {aspek && <p className="text-sm text-slate-500">{aspek.deskripsi}</p>}
-            <ProgressBar value={((step + 1) / LANGKAH.length) * 100} className="mt-3 h-1.5 lg:hidden" />
+            <InstrumenNotice instrumen={instrumen} className="mt-3" />
+            <ProgressBar value={((step + 1) / daftarLangkah.length) * 100} className="mt-3 h-1.5 lg:hidden" />
           </div>
 
           <div key={langkah.id} className="animate-fade-in px-5 py-6 sm:px-6">
             {langkah.id === 'identitas' && <IdentitasStep />}
             {aspek && <AspekStep aspek={aspek} />}
-            {langkah.id === 'catatan' && <CatatanStep />}
+            {langkah.id === 'catatan' && <CatatanStep instrumen={instrumen} />}
           </div>
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-100 bg-slate-50/60 px-5 py-4 sm:px-6">
@@ -109,7 +115,7 @@ export function SupervisiForm({ defaultValues, onSubmit, submitLabel, draftKey }
           </div>
         </Card>
 
-        <PanelLangkah control={form.control} step={step} onPilih={pindah} />
+        <PanelLangkah control={form.control} instrumen={instrumen} daftarLangkah={daftarLangkah} step={step} onPilih={pindah} />
       </form>
     </FormProvider>
   )
@@ -117,15 +123,19 @@ export function SupervisiForm({ defaultValues, onSubmit, submitLabel, draftKey }
 
 function PanelLangkah({
   control,
+  instrumen,
+  daftarLangkah,
   step,
   onPilih,
 }: {
   control: Control<SupervisiFormInput, unknown, SupervisiFormValues>
+  instrumen: Instrumen
+  daftarLangkah: Langkah[]
   step: number
   onPilih: (i: number) => void
 }) {
   const skor = useWatch({ control, name: 'skor' })
-  const r = hitungRingkasan(skor ?? {})
+  const r = hitungRingkasan(skor ?? {}, instrumen)
 
   return (
     <Card className="p-4 lg:sticky lg:top-6">
@@ -139,7 +149,7 @@ function PanelLangkah({
       </div>
 
       <ol className="space-y-1">
-        {LANGKAH.map((l, i) => {
+        {daftarLangkah.map((l, i) => {
           const pa = r.perAspek[l.id]
           const selesai = pa ? pa.terisi === pa.jumlah : i < step
           return (

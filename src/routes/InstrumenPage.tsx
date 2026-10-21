@@ -1,7 +1,8 @@
 import { PageHeader } from '@/components/layout/PageHeader'
+import { InstrumenNotice } from '@/components/ui/InstrumenNotice'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { PredikatBadge } from '@/components/ui/PredikatBadge'
-import { ASPEK, SEMUA_INDIKATOR, SKALA, SKOR_MAKS_TOTAL } from '@/data/instrumen'
+import { ASPEK, INSTRUMEN_AKTIF, SEMUA_INDIKATOR, SKALA, SKOR_MAKS_TOTAL } from '@/data/instrumen'
 import { BATAS_PREDIKAT } from '@/lib/scoring'
 
 export default function InstrumenPage() {
@@ -11,6 +12,8 @@ export default function InstrumenPage() {
         title="Instrumen Supervisi"
         description={`SMP · Kurikulum Merdeka · ${ASPEK.length} aspek, ${SEMUA_INDIKATOR.length} indikator, skor maksimal ${SKOR_MAKS_TOTAL}.`}
       />
+
+      <InstrumenNotice instrumen={INSTRUMEN_AKTIF} className="mb-6" />
 
       <div className="mb-6 grid gap-6 md:grid-cols-2">
         <Card>

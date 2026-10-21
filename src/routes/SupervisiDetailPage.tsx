@@ -7,8 +7,9 @@ import { Button } from '@/components/ui/Button'
 import { buttonClass } from '@/components/ui/button-styles'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { EmptyState } from '@/components/ui/EmptyState'
+import { InstrumenNotice } from '@/components/ui/InstrumenNotice'
 import { PageLoader } from '@/components/ui/Spinner'
-import { ASPEK, SKALA } from '@/data/instrumen'
+import { SKALA } from '@/data/instrumen'
 import { pesanError } from '@/features/auth/actions'
 import { useAuth } from '@/features/auth/auth-context'
 import { NilaiAkhir, TabelRingkasan } from '@/features/supervisi/components/RingkasanSkor'
@@ -67,6 +68,7 @@ export default function SupervisiDetailPage() {
     ['Tanggal', formatTanggal(i.tanggal)],
     ['Kurikulum', i.kurikulum === 'Lainnya' ? (i.kurikulumLainnya ?? 'Lainnya') : i.kurikulum],
     ['Model pembelajaran', i.modelPembelajaran],
+    ['Instrumen', `${data.instrumen.nama}, versi ${data.instrumen.versi}`],
   ]
 
   return (
@@ -116,6 +118,7 @@ export default function SupervisiDetailPage() {
       />
 
       <div className="space-y-6">
+        <InstrumenNotice instrumen={data.instrumen} />
         <div className="grid gap-6 lg:grid-cols-3 print:grid-cols-3">
           <Card className="lg:col-span-2 print:col-span-2">
             <CardHeader title="Identitas" />
@@ -137,11 +140,11 @@ export default function SupervisiDetailPage() {
         <Card>
           <CardHeader title="Rekapitulasi skor" />
           <div className="p-5">
-            <TabelRingkasan ringkasan={ringkasan} />
+            <TabelRingkasan ringkasan={ringkasan} instrumen={data.instrumen} />
           </div>
         </Card>
 
-        {ASPEK.map((a) => (
+        {data.instrumen.aspek.map((a) => (
           <Card key={a.id} className="break-inside-avoid-page">
             <CardHeader
               title={`${a.kode}. ${a.judul}`}

@@ -1,4 +1,4 @@
-import { ASPEK, SEMUA_INDIKATOR } from '@/data/instrumen'
+import { semuaIndikator } from '@/data/instrumen'
 import type { Supervisi } from './api'
 
 const sel = (v: unknown) => {
@@ -8,6 +8,14 @@ const sel = (v: unknown) => {
 
 /** Satu baris per supervisi — format siap diimpor ke Google Sheets / Excel. */
 export function toCsv(rows: Supervisi[]) {
+  // Kolom indikator/aspek adalah gabungan seluruh versi instrumen yang muncul pada baris-baris ini.
+  const idIndikator: string[] = []
+  const kodeAspek: string[] = []
+  for (const r of rows) {
+    for (const i of semuaIndikator(r.instrumen)) if (!idIndikator.includes(i.id)) idIndikator.push(i.id)
+    for (const a of r.instrumen.aspek) if (!kodeAspek.includes(a.kode)) kodeAspek.push(a.kode)
+  }
+
   const header = [
     'Tanggal',
     'Nama Sekolah',
@@ -17,8 +25,10 @@ export function toCsv(rows: Supervisi[]) {
     'Supervisor',
     'Kurikulum',
     'Model Pembelajaran',
-    ...SEMUA_INDIKATOR.map((i) => i.id),
-    ...ASPEK.map((a) => 'Total ' + a.kode),
+    'Versi Instrumen',
+    'Status Instrumen',
+    ...idIndikator,
+    ...kodeAspek.map((k) => 'Total ' + k),
     'Total Skor',
     'Skor Maksimal',
     'Nilai',
@@ -39,8 +49,10 @@ export function toCsv(rows: Supervisi[]) {
       i.namaSupervisor,
       i.kurikulum === 'Lainnya' ? i.kurikulumLainnya : i.kurikulum,
       i.modelPembelajaran,
-      ...SEMUA_INDIKATOR.map((ind) => r.skor[ind.id] ?? ''),
-      ...ASPEK.map((a) => r.ringkasan.perAspek[a.id]?.total ?? 0),
+      r.instrumen.versi,
+      r.instrumen.status,
+      ...idIndikator.map((id) => r.skor[id] ?? ''),
+      ...kodeAspek.map((k) => r.ringkasan.perAspek[k]?.total ?? ''),
       r.ringkasan.total,
       r.ringkasan.maks,
       r.ringkasan.nilai,
@@ -56,7 +68,7 @@ export function toCsv(rows: Supervisi[]) {
 
 export function downloadCsv(filename: string, rows: Supervisi[]) {
   // BOM agar Excel membaca UTF-8 dengan benar.
-  const blob = new Blob(['﻿' + toCsv(rows)], { type: 'text/csv;charset=utf-8' })
+  const blob = new Blob(['\uFEFF' + toCsv(rows)], { type: 'text/csv;charset=utf-8' })
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
