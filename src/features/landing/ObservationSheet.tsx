@@ -37,7 +37,7 @@ function Bubble({
         'grid size-9 place-items-center rounded-full border-[1.5px] text-sm font-semibold transition-colors',
         checked
           ? 'border-ink bg-ink text-white'
-          : 'border-ink/35 bg-white/60 text-ink/70 hover:border-ink hover:bg-white hover:text-ink',
+          : 'border-ink/55 bg-white/60 text-ink/70 hover:border-ink hover:bg-white hover:text-ink',
       )}
     >
       {nilai}
@@ -60,7 +60,7 @@ function BarisIndikator({
   return (
     <li className="grid gap-3 py-4 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-6">
       <p id={labelId} className="text-[15px] leading-snug text-ink">
-        <span className="mr-2 font-semibold text-ink/50">{id}</span>
+        <span className="mr-2 font-semibold text-ink/65">{id}</span>
         {teks}
       </p>
       <div
@@ -99,19 +99,19 @@ export function ObservationSheet() {
       <div className="relative overflow-hidden rounded-md bg-white shadow-[0_1px_0_rgba(18,35,63,0.06),0_24px_48px_-24px_rgba(18,35,63,0.28)] ring-1 ring-ink/10">
         {/* garis margin merah + lubang binder */}
         <div aria-hidden className="absolute inset-y-0 left-10 w-px bg-margin/45 sm:left-14" />
-        <div aria-hidden className="absolute top-8 left-3 size-3.5 rounded-full bg-paper shadow-[inset_0_1px_2px_rgba(18,35,63,0.25)] sm:left-4" />
-        <div aria-hidden className="absolute top-1/2 left-3 size-3.5 -translate-y-1/2 rounded-full bg-paper shadow-[inset_0_1px_2px_rgba(18,35,63,0.25)] sm:left-4" />
-        <div aria-hidden className="absolute bottom-8 left-3 size-3.5 rounded-full bg-paper shadow-[inset_0_1px_2px_rgba(18,35,63,0.25)] sm:left-4" />
+        <div aria-hidden className="absolute top-8 left-3 size-3.5 rounded-full bg-brand-700 shadow-[inset_0_1px_3px_rgba(0,0,0,0.35)] sm:left-4" />
+        <div aria-hidden className="absolute top-1/2 left-3 size-3.5 -translate-y-1/2 rounded-full bg-brand-700 shadow-[inset_0_1px_3px_rgba(0,0,0,0.35)] sm:left-4" />
+        <div aria-hidden className="absolute bottom-8 left-3 size-3.5 rounded-full bg-brand-700 shadow-[inset_0_1px_3px_rgba(0,0,0,0.35)] sm:left-4" />
 
         <div className="py-6 pr-5 pl-14 sm:py-7 sm:pr-7 sm:pl-20">
           <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1 border-b border-ink/15 pb-4">
-            <p className="font-serif text-lg font-semibold text-ink">Lembar observasi kelas</p>
+            <p className="font-display text-lg font-bold text-ink">Lembar observasi kelas</p>
             <p className="font-hand text-[17px] leading-none text-brand-700" aria-label="Contoh pengisian">
               IPA, kelas VIII B
             </p>
           </div>
 
-          <div className="mt-3 hidden justify-end gap-2 text-[11px] text-ink/55 sm:flex" aria-hidden>
+          <div className="mt-3 hidden justify-end gap-2 text-[11px] text-ink/70 sm:flex" aria-hidden>
             <span className="w-[2.25rem] text-center">kurang</span>
             <span className="w-[2.25rem]" />
             <span className="w-[2.25rem]" />
@@ -132,16 +132,18 @@ export function ObservationSheet() {
 
           <div className="mt-2 flex flex-wrap items-center justify-between gap-4 border-t-2 border-ink pt-5" aria-live="polite">
             <div>
-              <p className="text-sm text-ink/60">Nilai</p>
-              <p className="font-serif text-5xl leading-none font-semibold tracking-tight text-ink tabular-nums">
-                {formatNilai(nilai)}
+              <p className="text-sm text-ink/70">Nilai</p>
+              <p className="font-display text-5xl leading-none font-extrabold tracking-tight text-ink tabular-nums">
+                <span className="bg-[linear-gradient(transparent_58%,var(--color-marker)_58%,var(--color-marker)_92%,transparent_92%)] px-1">
+                  {formatNilai(nilai)}
+                </span>
               </p>
-              <p className="mt-1.5 text-xs text-ink/55 tabular-nums">
+              <p className="mt-1.5 text-xs text-ink/70 tabular-nums">
                 Skor {total} dari {maks}
               </p>
             </div>
             <p
-              className="-rotate-3 rounded-[52%_48%_55%_45%/58%_47%_53%_42%] border-2 border-margin px-6 py-2 font-hand text-3xl leading-tight font-bold text-margin"
+              className="-rotate-3 rounded-[52%_48%_55%_45%/58%_47%_53%_42%] border-2 border-margin px-6 py-2 font-hand text-3xl leading-tight font-bold text-margin motion-safe:animate-stamp"
               key={predikat}
             >
               {predikat}
@@ -149,7 +151,7 @@ export function ObservationSheet() {
           </div>
         </div>
       </div>
-      <figcaption className="mt-3 max-w-md text-sm text-ink/60">
+      <figcaption className="mt-3 max-w-md text-sm text-ink/70">
         Coba klik bulatannya. Ini 3 dari {SEMUA_INDIKATOR.length} indikator di instrumen; skor di sini tidak disimpan.
       </figcaption>
     </figure>
