@@ -42,7 +42,7 @@ export function Field({
       </label>
       {children({ id, 'aria-invalid': !!error, 'aria-describedby': error || hint ? msgId : undefined })}
       {error ? (
-        <p id={msgId} className="mt-1.5 text-xs font-medium text-rose-600">
+        <p id={msgId} role="alert" className="mt-1.5 text-xs font-medium text-rose-600">
           {error}
         </p>
       ) : (

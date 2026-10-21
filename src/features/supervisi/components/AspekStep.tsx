@@ -47,7 +47,7 @@ export function AspekStep({ aspek }: { aspek: Aspek }) {
                         {ind.id}
                       </span>
                       <div>
-                        <p className="text-sm leading-relaxed text-slate-800">{ind.teks}</p>
+                        <p id={`ind-${ind.id}`} className="text-sm leading-relaxed text-slate-800">{ind.teks}</p>
                         {fieldState.error && (
                           <p className="mt-1 text-xs font-medium text-rose-600">{fieldState.error.message}</p>
                         )}
@@ -56,6 +56,7 @@ export function AspekStep({ aspek }: { aspek: Aspek }) {
                     <div className="shrink-0 self-end sm:self-auto">
                       <ScoreInput
                         label={`Skor ${ind.id}`}
+                        labelledBy={`ind-${ind.id}`}
                         value={field.value}
                         onChange={field.onChange}
                         onBlur={field.onBlur}

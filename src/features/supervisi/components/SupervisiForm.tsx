@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { FormProvider, useForm, useWatch, type Control } from 'react-hook-form'
 import { useBlocker } from 'react-router'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -40,7 +40,14 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
     mode: 'onTouched',
   })
   const [step, setStep] = useState(0)
+  const judulLangkah = useRef<HTMLHeadingElement>(null)
+  const langkahPertama = useRef(true)
   const langkah = daftarLangkah[step]
+  useEffect(() => {
+    // Pembaca layar diarahkan ke judul langkah yang baru (bukan ke tombol yang baru saja ditekan).
+    if (langkahPertama.current) langkahPertama.current = false
+    else judulLangkah.current?.focus({ preventScroll: true })
+  }, [step])
   const terakhir = step === daftarLangkah.length - 1
 
   useEffect(() => {
@@ -77,7 +84,7 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
     else toast.error('Masih ada isian yang belum lengkap pada langkah ini.')
   }
 
-  const submit = form.handleSubmit(
+  const kirim = form.handleSubmit(
     async (values) => {
       await onSubmit(values)
       setSelesai(true) // sudah tersimpan: navigasi setelah ini tidak perlu diperingatkan
@@ -93,13 +100,16 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
 
   return (
     <FormProvider {...form}>
-      <form onSubmit={submit} noValidate className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <form
+        // Pengaman kedua: penyimpanan hanya boleh dari langkah terakhir (mis. tekan Enter di langkah lain).
+        onSubmit={(e) => (terakhir ? kirim(e) : e.preventDefault())}
+        noValidate className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
             <p className="text-xs font-semibold text-brand-600">
               Langkah {step + 1} dari {daftarLangkah.length}
             </p>
-            <h2 className="mt-0.5 text-lg font-bold text-slate-900">
+            <h2 ref={judulLangkah} tabIndex={-1} className="mt-0.5 text-lg font-bold text-slate-900 outline-none">
               {aspek ? `${aspek.kode}. ${aspek.judul}` : langkah.judul}
             </h2>
             {aspek && <p className="text-sm text-slate-500">{aspek.deskripsi}</p>}
@@ -117,12 +127,17 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
             <Button variant="secondary" onClick={() => pindah(step - 1)} disabled={step === 0}>
               <ChevronLeft /> Kembali
             </Button>
+            {/*
+              `key` berbeda WAJIB: tanpa itu React memakai ulang satu elemen <button>. Saat "Lanjut" di
+              langkah terakhir diklik, elemen itu berubah menjadi type="submit" sebelum browser memproses
+              klik, sehingga form tersimpan seketika tanpa pernah menampilkan langkah catatan.
+            */}
             {terakhir ? (
-              <Button type="submit" loading={form.formState.isSubmitting}>
+              <Button key="simpan" type="submit" loading={form.formState.isSubmitting}>
                 <Save /> {submitLabel}
               </Button>
             ) : (
-              <Button onClick={lanjut}>
+              <Button key="lanjut" onClick={lanjut}>
                 Lanjut <ChevronRight />
               </Button>
             )}

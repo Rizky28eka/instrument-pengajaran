@@ -29,6 +29,11 @@ export function bikinDepKeluar(queryClient: { clear(): void }): DepKeluar {
       await terminate(db)
       await clearIndexedDbPersistence(db)
     },
-    keHalaman: (path) => window.location.replace(path),
+    keHalaman: (path) => {
+      // Memuat ulang URL yang sama mempertahankan history.state (mis. "tujuan semula" pengguna
+      // sebelumnya). Kosongkan dulu supaya pengguna berikutnya tidak diarahkan ke halaman orang lain.
+      window.history.replaceState(null, '', path)
+      window.location.replace(path)
+    },
   }
 }
