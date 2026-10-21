@@ -2,12 +2,15 @@
 
 @theme {
   --font-sans: 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
-  --font-serif: 'Literata', Georgia, 'Times New Roman', serif;
+  --font-display: 'Bitter', Georgia, 'Times New Roman', serif;
+  --font-text: 'Atkinson Hyperlegible Next', 'Plus Jakarta Sans', ui-sans-serif, system-ui, sans-serif;
   --font-hand: 'Kalam', 'Comic Sans MS', cursive;
 
-  --color-ink: #12233f;
-  --color-paper: #f6f7f4;
-  --color-margin: #c93d3d;
+  /* Tiga tinta alat tulis: tinta (teks), stabilo (penanda), pena merah (koreksi). */
+  --color-ink: oklch(0.24 0.055 277);
+  --color-page: oklch(0.985 0.004 277);
+  --color-marker: oklch(0.93 0.14 100);
+  --color-margin: oklch(0.54 0.19 25);
 
   --color-brand-50: oklch(0.962 0.018 272.3);
   --color-brand-100: oklch(0.93 0.034 272.8);
@@ -19,6 +22,18 @@
   --color-brand-950: oklch(0.257 0.09 281.29);
 
   --animate-fade-in: fade-in 0.25s ease-out;
+  --animate-stamp: stamp 0.28s cubic-bezier(0.22, 1, 0.36, 1);
+
+  @keyframes stamp {
+    from {
+      opacity: 0;
+      transform: rotate(-3deg) scale(1.18);
+    }
+    to {
+      opacity: 1;
+      transform: rotate(-3deg) scale(1);
+    }
+  }
 
   @keyframes fade-in {
     from {
