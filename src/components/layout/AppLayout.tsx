@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
 import { BookOpen, ClipboardList, FilePlus, GraduationCap, LayoutDashboard, ListChecks, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/auth-context'
@@ -81,13 +81,33 @@ export function AppLayout() {
   const [open, setOpen] = useState(false)
   const { mulaiKeluar, dialog } = useKeluar()
   const { pathname } = useLocation()
+  const drawer = useRef<HTMLDialogElement>(null)
+  const konten = useRef<HTMLElement>(null)
+  const pertama = useRef(true)
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
+    // Setelah berpindah halaman, pindahkan fokus ke konten supaya pembaca layar / keyboard tidak tertinggal di menu.
+    if (pertama.current) pertama.current = false
+    else konten.current?.focus({ preventScroll: true })
   }, [pathname])
+
+  // <dialog> asli: fokus terkunci di dalamnya, Escape menutup, dan fokus kembali ke tombol menu.
+  useEffect(() => {
+    const d = drawer.current
+    if (!d) return
+    if (open && !d.open) d.showModal()
+    if (!open && d.open) d.close()
+  }, [open])
 
   return (
     <div className="min-h-svh lg:pl-64 print:pl-0">
+      <a
+        href="#konten"
+        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow-lg"
+      >
+        Lewati ke konten
+      </a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-200 bg-white lg:block print:hidden">
         <Sidebar onKeluar={() => void mulaiKeluar()} />
       </aside>
@@ -104,24 +124,27 @@ export function AppLayout() {
         </button>
       </header>
 
-      {open && (
-        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
-          <div className="absolute inset-0 bg-slate-900/40 animate-fade-in" onClick={() => setOpen(false)} />
-          <div className="absolute inset-y-0 left-0 w-72 bg-white shadow-xl animate-fade-in">
-            <button
-              type="button"
-              onClick={() => setOpen(false)}
-              className="absolute top-4 right-3 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-              aria-label="Tutup menu"
-            >
-              <X className="size-5" />
-            </button>
-            <Sidebar onNavigate={() => setOpen(false)} onKeluar={() => void mulaiKeluar()} />
-          </div>
-        </div>
-      )}
+      <dialog
+        ref={drawer}
+        aria-label="Menu navigasi"
+        onClose={() => setOpen(false)}
+        onClick={(e) => {
+          if (e.target === drawer.current) setOpen(false) // klik di area gelap
+        }}
+        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-72 max-w-[85vw] overflow-y-auto bg-white p-0 text-slate-800 shadow-xl backdrop:bg-slate-900/40 lg:hidden"
+      >
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="absolute top-4 right-3 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+          aria-label="Tutup menu"
+        >
+          <X className="size-5" />
+        </button>
+        <Sidebar onNavigate={() => setOpen(false)} onKeluar={() => void mulaiKeluar()} />
+      </dialog>
 
-      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">
+      <main id="konten" ref={konten} tabIndex={-1} className="mx-auto max-w-6xl px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">
         <Outlet />
       </main>
       {dialog}

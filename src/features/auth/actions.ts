@@ -25,13 +25,26 @@ export const kirimUlangVerifikasi = () => {
   return sendEmailVerification(auth.currentUser)
 }
 
-/** Selalu dianggap berhasil oleh pemanggil agar tidak membocorkan email mana yang terdaftar. */
-export const kirimResetSandi = (email: string) => sendPasswordResetEmail(auth, email)
+/**
+ * Selalu berhasil bagi pemanggil bila emailnya tidak terdaftar, agar tidak membocorkan email mana
+ * yang memiliki akun (Firebase produksi sudah begitu; emulator / proyek lama mengembalikan galat).
+ */
+export async function kirimResetSandi(email: string) {
+  try {
+    await sendPasswordResetEmail(auth, email)
+  } catch (e) {
+    if (e instanceof FirebaseError && e.code === 'auth/user-not-found') return
+    throw e
+  }
+}
 
 export const masukGoogle = () => signInWithPopup(auth, googleProvider)
 
 const PESAN: Record<string, string> = {
+  // Sandi salah dan akun tidak ada diberi pesan yang sama (tidak membocorkan keberadaan akun).
   'auth/invalid-credential': 'Email atau kata sandi salah.',
+  'auth/wrong-password': 'Email atau kata sandi salah.',
+  'auth/user-not-found': 'Email atau kata sandi salah.',
   'auth/invalid-email': 'Format email tidak valid.',
   'auth/user-disabled': 'Akun ini dinonaktifkan.',
   'auth/email-already-in-use': 'Email sudah terdaftar. Silakan masuk.',
