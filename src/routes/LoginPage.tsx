@@ -36,7 +36,7 @@ export default function LoginPage() {
 
   if (loading) return <FullPageLoader />
   if (user) {
-    const from = (location.state as { from?: Location } | null)?.from?.pathname ?? '/'
+    const from = (location.state as { from?: Location } | null)?.from?.pathname ?? '/dashboard'
     return <Navigate to={from} replace />
   }
 

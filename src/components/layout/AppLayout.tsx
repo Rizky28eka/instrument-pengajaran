@@ -6,7 +6,7 @@ import { keluar } from '@/features/auth/actions'
 import { cn } from '@/lib/utils'
 
 const NAV = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard, end: true },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/supervisi', label: 'Data Supervisi', icon: ClipboardList, end: true },
   { to: '/supervisi/baru', label: 'Supervisi Baru', icon: FilePlus, end: true },
   { to: '/instrumen', label: 'Instrumen', icon: BookOpen, end: true },
