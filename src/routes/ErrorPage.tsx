@@ -1,5 +1,5 @@
 import { isRouteErrorResponse, Link, useRouteError } from 'react-router'
-import { buttonClass } from '@/components/ui/Button'
+import { buttonClass } from '@/components/ui/button-styles'
 
 export function ErrorPage() {
   const error = useRouteError()

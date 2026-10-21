@@ -1,5 +1,6 @@
 import { ASPEK } from '@/data/instrumen'
-import { PredikatBadge, PREDIKAT_STYLE } from '@/components/ui/PredikatBadge'
+import { PredikatBadge } from '@/components/ui/PredikatBadge'
+import { PREDIKAT_STYLE } from '@/components/ui/predikat-style'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import type { Ringkasan } from '@/lib/scoring'
 import { cn, formatNilai } from '@/lib/utils'
