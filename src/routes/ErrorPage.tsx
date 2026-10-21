@@ -16,7 +16,7 @@ export function ErrorPage() {
         <p className="mt-1 text-sm text-slate-500">
           {notFound ? 'Alamat yang Anda tuju tidak tersedia.' : 'Coba muat ulang halaman ini.'}
         </p>
-        <Link to="/" className={buttonClass({}, 'mt-6')}>
+        <Link to="/dashboard" className={buttonClass({}, 'mt-6')}>
           Kembali ke Dashboard
         </Link>
       </div>

@@ -13,6 +13,7 @@ export const router = createBrowserRouter([
     HydrateFallback: FullPageLoader,
     ErrorBoundary: ErrorPage,
     children: [
+      { index: true, lazy: page(() => import('@/routes/LandingPage')) },
       { path: 'login', lazy: page(() => import('@/routes/LoginPage')) },
       {
         Component: RequireAuth,
@@ -23,7 +24,7 @@ export const router = createBrowserRouter([
               {
                 ErrorBoundary: ErrorPage,
                 children: [
-                  { index: true, lazy: page(() => import('@/routes/DashboardPage')) },
+                  { path: 'dashboard', lazy: page(() => import('@/routes/DashboardPage')) },
                   { path: 'supervisi', lazy: page(() => import('@/routes/SupervisiListPage')) },
                   { path: 'supervisi/baru', lazy: page(() => import('@/routes/SupervisiFormPage')) },
                   { path: 'supervisi/:id', lazy: page(() => import('@/routes/SupervisiDetailPage')) },
