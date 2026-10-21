@@ -1,21 +1,417 @@
 rules_version = '2';
 
+/**
+ * Model akses (deny-by-default):
+ *
+ *  - Akun Firebase Auth yang baru mendaftar TIDAK memiliki akses apa pun.
+ *  - Akses diperoleh dengan menebus undangan (invites) yang dibuat admin sekolah; hasilnya
+ *    dokumen profil users/{uid} berisi schoolId, role, dan status.
+ *  - Semua data dibatasi per sekolah (schoolId). Tidak ada akses lintas sekolah.
+ *  - Email wajib terverifikasi (token.email_verified) untuk semua akses.
+ *  - Tidak ada hard-delete dari klien; penghapusan adalah soft-delete (deletedAt).
+ *  - Setiap perubahan supervisi / tindakLanjut menaikkan `rev` sebesar 1 dan WAJIB disertai
+ *    entri riwayat/{rev} pada batch yang sama (jejak audit + perlindungan lost update).
+ *
+ * Batasan yang diakui: seluruh pemeriksaan dilakukan terhadap data kiriman klien. Seorang
+ * pengguna sah dalam sekolahnya dapat menulis nilai yang tidak konsisten (mis. ringkasan);
+ * itu sebabnya aplikasi selalu menghitung ulang ringkasan dari skor saat membaca.
+ */
 service cloud.firestore {
   match /databases/{database}/documents {
+
+    // ---------------------------------------------------------------- pembantu umum
+
     function signedIn() {
       return request.auth != null;
     }
 
-    match /supervisi/{id} {
-      // Semua supervisor yang login dapat melihat data supervisi.
-      allow read: if signedIn();
-      // Dokumen hanya dapat dibuat atas nama pengguna yang sedang login.
-      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
-      // Hanya pembuat dokumen yang dapat mengubah/menghapus.
-      allow update: if signedIn()
-        && resource.data.createdBy == request.auth.uid
-        && request.resource.data.createdBy == resource.data.createdBy;
-      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+    function verified() {
+      return signedIn() && request.auth.token.email_verified == true;
     }
+
+    function profilePath(uid) {
+      return /databases/$(database)/documents/users/$(uid);
+    }
+
+    function hasProfile() {
+      return exists(profilePath(request.auth.uid));
+    }
+
+    function me() {
+      return get(profilePath(request.auth.uid)).data;
+    }
+
+    // Pengguna aktif: email terverifikasi, punya profil, dan tidak dinonaktifkan.
+    function active() {
+      return verified() && hasProfile() && me().status == 'active';
+    }
+
+    function inSchool(schoolId) {
+      return active() && me().schoolId == schoolId;
+    }
+
+    function isAdmin(schoolId) {
+      return inSchool(schoolId) && me().role == 'admin';
+    }
+
+    function isStr(v, maxLen) {
+      return v is string && v.size() <= maxLen;
+    }
+
+    function isStrNonEmpty(v, maxLen) {
+      return v is string && v.size() > 0 && v.size() <= maxLen;
+    }
+
+    function isDateStr(v) {
+      return v is string && v.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
+    }
+
+    // ---------------------------------------------------------------- sekolah
+
+    match /schools/{schoolId} {
+      // Dibuat lewat konsol / skrip admin (lihat docs/OPERASIONAL.md), bukan dari klien.
+      allow get: if inSchool(schoolId);
+      allow list, write: if false;
+    }
+
+    // ---------------------------------------------------------------- profil pengguna
+
+    function validNewProfile(d, uid) {
+      let invitePath = /databases/$(database)/documents/invites/$(d.inviteId);
+      return d.keys().hasOnly(['email', 'nama', 'schoolId', 'role', 'status', 'inviteId', 'createdAt'])
+        && d.keys().hasAll(['email', 'nama', 'schoolId', 'role', 'status', 'inviteId', 'createdAt'])
+        && d.email == request.auth.token.email
+        && isStrNonEmpty(d.nama, 100)
+        && d.status == 'active'
+        && d.createdAt == request.time
+        && d.inviteId is string
+        && exists(invitePath)
+        && get(invitePath).data.usedBy == null
+        && get(invitePath).data.expiresAt > request.time
+        && get(invitePath).data.schoolId == d.schoolId
+        && get(invitePath).data.role == d.role
+        && (get(invitePath).data.email == null
+            || get(invitePath).data.email.lower() == request.auth.token.email.lower())
+        // Undangan harus ditandai terpakai oleh pengguna ini pada batch yang sama.
+        && getAfter(invitePath).data.usedBy == uid;
+    }
+
+    match /users/{uid} {
+      allow get: if signedIn() && (request.auth.uid == uid || isAdmin(resource.data.schoolId));
+      allow list: if isAdmin(resource.data.schoolId);
+
+      // Menebus undangan: hanya untuk dirinya sendiri, hanya sekali (dokumen belum ada).
+      allow create: if verified()
+        && request.auth.uid == uid
+        && !hasProfile()
+        && validNewProfile(request.resource.data, uid);
+
+      // Admin sekolah hanya dapat mengubah status; tidak dapat menonaktifkan dirinya sendiri.
+      allow update: if isAdmin(resource.data.schoolId)
+        && request.auth.uid != uid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status'])
+        && request.resource.data.status in ['active', 'disabled'];
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------- undangan
+
+    match /invites/{inviteId} {
+      // ID undangan adalah token acak yang sulit ditebak; list tetap dibatasi untuk admin.
+      allow get: if verified();
+      allow list: if isAdmin(resource.data.schoolId);
+
+      allow create: if isAdmin(request.resource.data.schoolId)
+        && request.resource.data.keys().hasOnly(['schoolId', 'role', 'email', 'createdBy', 'createdAt', 'expiresAt', 'usedBy', 'usedAt'])
+        && request.resource.data.keys().hasAll(['schoolId', 'role', 'email', 'createdBy', 'createdAt', 'expiresAt', 'usedBy', 'usedAt'])
+        && request.resource.data.role in ['admin', 'supervisor']
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(30, 'd')
+        && (request.resource.data.email == null || isStrNonEmpty(request.resource.data.email, 200))
+        && request.resource.data.usedBy == null
+        && request.resource.data.usedAt == null
+        && inviteId.size() >= 20;
+
+      // Menebus: hanya mengisi usedBy/usedAt, hanya oleh pengguna itu sendiri, dan hanya bila
+      // profilnya dibuat pada batch yang sama dan menunjuk undangan ini.
+      allow update: if verified()
+        && resource.data.usedBy == null
+        && resource.data.expiresAt > request.time
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['usedBy', 'usedAt'])
+        && request.resource.data.usedBy == request.auth.uid
+        && request.resource.data.usedAt == request.time
+        && existsAfter(profilePath(request.auth.uid))
+        && getAfter(profilePath(request.auth.uid)).data.inviteId == inviteId;
+
+      // Mencabut undangan yang belum terpakai.
+      allow delete: if isAdmin(resource.data.schoolId) && resource.data.usedBy == null;
+    }
+
+    // ---------------------------------------------------------------- master data guru
+
+    function validGuru(d) {
+      return d.keys().hasOnly(['schoolId', 'nama', 'mapel', 'aktif', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && d.keys().hasAll(['schoolId', 'nama', 'mapel', 'aktif', 'createdAt', 'createdBy', 'updatedAt', 'updatedBy'])
+        && isStrNonEmpty(d.nama, 120)
+        && isStr(d.mapel, 120)
+        && d.aktif is bool
+        && d.updatedBy == request.auth.uid
+        && d.updatedAt == request.time;
+    }
+
+    match /guru/{guruId} {
+      allow read: if inSchool(resource.data.schoolId);
+
+      allow create: if inSchool(request.resource.data.schoolId)
+        && validGuru(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time;
+
+      // Identitas stabil: sekolah, pembuat, dan waktu pembuatan tidak dapat diubah.
+      allow update: if inSchool(resource.data.schoolId)
+        && validGuru(request.resource.data)
+        && request.resource.data.schoolId == resource.data.schoolId
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt;
+
+      allow delete: if false;
+    }
+
+    // ---------------------------------------------------------------- supervisi
+
+    function supervisiKeys() {
+      return ['schoolId', 'guruId', 'guruNama', 'identitas', 'skor', 'catatanAspek', 'catatan', 'ringkasan',
+              'versiInstrumen', 'instrumen', 'createdBy', 'createdByName', 'createdAt', 'updatedAt', 'updatedBy',
+              'rev', 'deletedAt', 'deletedBy'];
+    }
+
+    function validIdentitas(i) {
+      return i is map
+        && i.keys().hasOnly(['namaSekolah', 'namaGuru', 'mataPelajaran', 'kelas', 'namaSupervisor', 'tanggal',
+                             'kurikulum', 'kurikulumLainnya', 'modelPembelajaran'])
+        && i.keys().hasAll(['namaSekolah', 'namaGuru', 'mataPelajaran', 'kelas', 'namaSupervisor', 'tanggal',
+                            'kurikulum', 'modelPembelajaran'])
+        && isStrNonEmpty(i.namaSekolah, 150)
+        && isStrNonEmpty(i.namaGuru, 120)
+        && isStrNonEmpty(i.mataPelajaran, 120)
+        && isStrNonEmpty(i.kelas, 40)
+        && isStrNonEmpty(i.namaSupervisor, 120)
+        && isDateStr(i.tanggal)
+        && i.kurikulum in ['Kurikulum Merdeka', 'Kurikulum 2013', 'Lainnya']
+        && (!('kurikulumLainnya' in i) || isStr(i.kurikulumLainnya, 120))
+        && i.modelPembelajaran in ['Tatap Muka', 'Daring', 'Blended Learning'];
+    }
+
+    // Validasi isi (tanpa kolom metadata). Rentang skor 1–4 dipaksa di sini, bukan hanya di UI.
+    function validIsiSupervisi(d) {
+      return validIdentitas(d.identitas)
+        && d.skor is map
+        && d.skor.size() <= 120
+        && d.skor.values().hasOnly([1, 2, 3, 4])
+        && d.catatanAspek is map
+        && d.catatanAspek.size() <= 20
+        && d.catatan is map
+        && d.catatan.keys().hasOnly(['kekuatan', 'perbaikan', 'rekomendasi'])
+        && isStr(d.catatan.get('kekuatan', ''), 4000)
+        && isStr(d.catatan.get('perbaikan', ''), 4000)
+        && isStr(d.catatan.get('rekomendasi', ''), 4000)
+        && d.ringkasan is map
+        && d.ringkasan.total is int
+        && d.ringkasan.maks is int
+        && d.ringkasan.nilai is number
+        && d.ringkasan.nilai >= 0
+        && d.ringkasan.nilai <= 100
+        && d.versiInstrumen is string
+        && d.versiInstrumen.size() <= 60
+        && d.instrumen is map
+        && d.instrumen.versi == d.versiInstrumen
+        && d.instrumen.aspek is list
+        && d.instrumen.aspek.size() <= 20;
+    }
+
+    function supervisiPath(id) {
+      return /databases/$(database)/documents/supervisi/$(id);
+    }
+
+    match /supervisi/{id} {
+      // Dokumen yang sudah di-soft-delete hanya terlihat oleh admin sekolahnya.
+      allow read: if inSchool(resource.data.schoolId)
+        && (resource.data.deletedAt == null || isAdmin(resource.data.schoolId));
+
+      allow create: if inSchool(request.resource.data.schoolId)
+        && request.resource.data.keys().hasOnly(supervisiKeys())
+        && request.resource.data.keys().hasAll(supervisiKeys())
+        && validIsiSupervisi(request.resource.data)
+        && request.resource.data.createdBy == request.auth.uid
+        && isStr(request.resource.data.createdByName, 120)
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.rev == 1
+        && request.resource.data.deletedAt == null
+        && request.resource.data.deletedBy == null
+        // Guru harus aktif dan milik sekolah yang sama.
+        && get(/databases/$(database)/documents/guru/$(request.resource.data.guruId)).data.schoolId == request.resource.data.schoolId
+        && get(/databases/$(database)/documents/guru/$(request.resource.data.guruId)).data.aktif == true
+        && request.resource.data.guruNama == get(/databases/$(database)/documents/guru/$(request.resource.data.guruId)).data.nama
+        && existsAfter(/databases/$(database)/documents/supervisi/$(id)/riwayat/1);
+
+      allow update: if inSchool(resource.data.schoolId)
+        && request.resource.data.keys().hasOnly(supervisiKeys())
+        && request.resource.data.keys().hasAll(supervisiKeys())
+        // Bidang yang tidak boleh berubah — termasuk versi dan snapshot instrumen.
+        && request.resource.data.schoolId == resource.data.schoolId
+        && request.resource.data.guruId == resource.data.guruId
+        && request.resource.data.guruNama == resource.data.guruNama
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdByName == resource.data.createdByName
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.versiInstrumen == resource.data.versiInstrumen
+        && request.resource.data.instrumen == resource.data.instrumen
+        // Perlindungan lost update + jejak audit.
+        && request.resource.data.rev == resource.data.rev + 1
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/supervisi/$(id)/riwayat/$(string(request.resource.data.rev)))
+        && (
+          // (1) Ubah isi: pembuat atau admin, dokumen belum dihapus.
+          (resource.data.deletedAt == null
+            && request.resource.data.deletedAt == null
+            && request.resource.data.deletedBy == null
+            && (resource.data.createdBy == request.auth.uid || isAdmin(resource.data.schoolId))
+            && validIsiSupervisi(request.resource.data))
+          // (2) Soft-delete: pembuat atau admin; isi tidak boleh ikut berubah.
+          || (resource.data.deletedAt == null
+            && request.resource.data.deletedAt == request.time
+            && request.resource.data.deletedBy == request.auth.uid
+            && (resource.data.createdBy == request.auth.uid || isAdmin(resource.data.schoolId))
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedAt', 'deletedBy', 'rev', 'updatedAt', 'updatedBy']))
+          // (3) Pulihkan: khusus admin; isi tidak boleh ikut berubah.
+          || (resource.data.deletedAt != null
+            && request.resource.data.deletedAt == null
+            && request.resource.data.deletedBy == null
+            && isAdmin(resource.data.schoolId)
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedAt', 'deletedBy', 'rev', 'updatedAt', 'updatedBy']))
+        );
+
+      allow delete: if false;
+
+      // Riwayat append-only. Dibuat bersamaan dengan perubahan induknya (lihat existsAfter di atas).
+      match /riwayat/{rev} {
+        allow read: if inSchool(get(supervisiPath(id)).data.schoolId);
+
+        allow create: if inSchool(getAfter(supervisiPath(id)).data.schoolId)
+          && request.resource.data.keys().hasOnly(['aksi', 'oleh', 'olehNama', 'waktu', 'rev', 'ringkasan'])
+          && request.resource.data.keys().hasAll(['aksi', 'oleh', 'olehNama', 'waktu', 'rev'])
+          && request.resource.data.aksi in ['buat', 'ubah', 'hapus', 'pulihkan']
+          && request.resource.data.oleh == request.auth.uid
+          && isStr(request.resource.data.olehNama, 120)
+          && request.resource.data.waktu == request.time
+          && request.resource.data.rev is int
+          && string(request.resource.data.rev) == rev
+          && getAfter(supervisiPath(id)).data.rev == request.resource.data.rev
+          && ((request.resource.data.aksi == 'buat') == (request.resource.data.rev == 1))
+          && (request.resource.data.aksi != 'hapus' || getAfter(supervisiPath(id)).data.deletedAt != null)
+          && (request.resource.data.aksi != 'ubah' && request.resource.data.aksi != 'pulihkan'
+              || getAfter(supervisiPath(id)).data.deletedAt == null);
+
+        allow update, delete: if false;
+      }
+    }
+
+    // ---------------------------------------------------------------- tindak lanjut
+
+    function tindakKeys() {
+      return ['schoolId', 'supervisiId', 'guruId', 'guruNama', 'deskripsi', 'status', 'penanggungJawab', 'tenggat',
+              'selesaiAt', 'createdBy', 'createdAt', 'updatedAt', 'updatedBy', 'rev'];
+    }
+
+    function tindakPath(id) {
+      return /databases/$(database)/documents/tindakLanjut/$(id);
+    }
+
+    function validTransisi(dari, ke) {
+      return dari == ke
+        || (dari == 'belum' && ke in ['proses', 'selesai', 'dibatalkan'])
+        || (dari == 'proses' && ke in ['belum', 'selesai', 'dibatalkan'])
+        || (dari == 'selesai' && ke == 'proses')
+        || (dari == 'dibatalkan' && ke == 'belum');
+    }
+
+    function validIsiTindak(d) {
+      return isStrNonEmpty(d.deskripsi, 2000)
+        && d.status in ['belum', 'proses', 'selesai', 'dibatalkan']
+        && isStr(d.penanggungJawab, 120)
+        && (d.tenggat == null || isDateStr(d.tenggat))
+        && isStrNonEmpty(d.guruNama, 120);
+    }
+
+    match /tindakLanjut/{id} {
+      allow read: if inSchool(resource.data.schoolId);
+
+      allow create: if inSchool(request.resource.data.schoolId)
+        && request.resource.data.keys().hasOnly(tindakKeys())
+        && request.resource.data.keys().hasAll(tindakKeys())
+        && validIsiTindak(request.resource.data)
+        && request.resource.data.status == 'belum'
+        && request.resource.data.selesaiAt == null
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && request.resource.data.rev == 1
+        // Terkait supervisi dan guru milik sekolah yang sama.
+        && get(/databases/$(database)/documents/supervisi/$(request.resource.data.supervisiId)).data.schoolId == request.resource.data.schoolId
+        && get(/databases/$(database)/documents/supervisi/$(request.resource.data.supervisiId)).data.guruId == request.resource.data.guruId
+        && existsAfter(/databases/$(database)/documents/tindakLanjut/$(id)/riwayat/1);
+
+      allow update: if inSchool(resource.data.schoolId)
+        && request.resource.data.keys().hasOnly(tindakKeys())
+        && request.resource.data.keys().hasAll(tindakKeys())
+        && validIsiTindak(request.resource.data)
+        && request.resource.data.schoolId == resource.data.schoolId
+        && request.resource.data.supervisiId == resource.data.supervisiId
+        && request.resource.data.guruId == resource.data.guruId
+        && request.resource.data.guruNama == resource.data.guruNama
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validTransisi(resource.data.status, request.resource.data.status)
+        && (request.resource.data.status == 'selesai'
+            ? (resource.data.status == 'selesai'
+                ? request.resource.data.selesaiAt == resource.data.selesaiAt
+                : request.resource.data.selesaiAt == request.time)
+            : request.resource.data.selesaiAt == null)
+        && request.resource.data.rev == resource.data.rev + 1
+        && request.resource.data.updatedAt == request.time
+        && request.resource.data.updatedBy == request.auth.uid
+        && existsAfter(/databases/$(database)/documents/tindakLanjut/$(id)/riwayat/$(string(request.resource.data.rev)));
+
+      allow delete: if false;
+
+      match /riwayat/{rev} {
+        allow read: if inSchool(get(tindakPath(id)).data.schoolId);
+
+        allow create: if inSchool(getAfter(tindakPath(id)).data.schoolId)
+          && request.resource.data.keys().hasOnly(['aksi', 'oleh', 'olehNama', 'waktu', 'rev', 'dari', 'ke', 'catatan'])
+          && request.resource.data.keys().hasAll(['aksi', 'oleh', 'olehNama', 'waktu', 'rev'])
+          && request.resource.data.aksi in ['buat', 'ubah', 'status', 'catatan']
+          && request.resource.data.oleh == request.auth.uid
+          && isStr(request.resource.data.olehNama, 120)
+          && request.resource.data.waktu == request.time
+          && request.resource.data.rev is int
+          && string(request.resource.data.rev) == rev
+          && getAfter(tindakPath(id)).data.rev == request.resource.data.rev
+          && ((request.resource.data.aksi == 'buat') == (request.resource.data.rev == 1))
+          && (!('catatan' in request.resource.data) || isStr(request.resource.data.catatan, 2000));
+
+        allow update, delete: if false;
+      }
+    }
+
+    // Selain yang tercantum di atas: ditolak.
   }
 }

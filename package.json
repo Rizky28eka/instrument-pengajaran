@@ -10,9 +10,11 @@
     "preview": "vite preview",
     "lint": "oxlint src",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "test:rules": "firebase emulators:exec --only firestore --project demo-instrumen \"vitest run --config vitest.rules.config.ts\""
   },
   "devDependencies": {
+    "@firebase/rules-unit-testing": "^6.0.0",
     "@tailwindcss/vite": "^4.3.3",
     "@types/node": "^26.6.5",
     "@types/react": "^19.3.0",
