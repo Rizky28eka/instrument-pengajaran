@@ -1,0 +1,222 @@
+import { useState } from 'react'
+import { Link, useNavigate, useParams } from 'react-router'
+import { ChevronLeft, Download, FileQuestion, Pencil, Printer, Trash2 } from 'lucide-react'
+import { toast } from 'sonner'
+import { PageHeader } from '@/components/layout/PageHeader'
+import { Button, buttonClass } from '@/components/ui/Button'
+import { Card, CardHeader } from '@/components/ui/Card'
+import { EmptyState } from '@/components/ui/EmptyState'
+import { PageLoader } from '@/components/ui/Spinner'
+import { ASPEK, SKALA } from '@/data/instrumen'
+import { pesanError } from '@/features/auth/actions'
+import { useAuth } from '@/features/auth/auth-context'
+import { NilaiAkhir, TabelRingkasan } from '@/features/supervisi/components/RingkasanSkor'
+import { downloadCsv } from '@/features/supervisi/csv'
+import { useDeleteSupervisi, useSupervisi } from '@/features/supervisi/queries'
+import { cn, formatTanggal } from '@/lib/utils'
+
+const LABEL_SKOR = Object.fromEntries(SKALA.map((s) => [s.nilai, s.label])) as Record<number, string>
+const WARNA_SKOR: Record<number, string> = {
+  4: 'bg-emerald-50 text-emerald-700',
+  3: 'bg-sky-50 text-sky-700',
+  2: 'bg-amber-50 text-amber-800',
+  1: 'bg-rose-50 text-rose-700',
+}
+
+export default function SupervisiDetailPage() {
+  const { id = '' } = useParams()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const { data, isPending } = useSupervisi(id)
+  const hapus = useDeleteSupervisi()
+  const [konfirmasi, setKonfirmasi] = useState(false)
+
+  if (isPending) return <PageLoader />
+  if (!data)
+    return (
+      <Card>
+        <EmptyState
+          icon={FileQuestion}
+          title="Data supervisi tidak ditemukan"
+          description="Data mungkin sudah dihapus."
+          action={<Link to="/supervisi" className={buttonClass({ variant: 'secondary' })}>Kembali ke daftar</Link>}
+        />
+      </Card>
+    )
+
+  const { identitas: i, ringkasan, catatan } = data
+  const pemilik = data.createdBy === user?.uid
+
+  async function onHapus() {
+    try {
+      await hapus.mutateAsync(id)
+      toast.success('Data supervisi dihapus.')
+      navigate('/supervisi', { replace: true })
+    } catch (e) {
+      toast.error(pesanError(e))
+    }
+  }
+
+  const identitasRows: [string, string][] = [
+    ['Nama sekolah', i.namaSekolah],
+    ['Nama guru', i.namaGuru],
+    ['Mata pelajaran', i.mataPelajaran],
+    ['Kelas', i.kelas],
+    ['Supervisor', i.namaSupervisor],
+    ['Tanggal', formatTanggal(i.tanggal)],
+    ['Kurikulum', i.kurikulum === 'Lainnya' ? (i.kurikulumLainnya ?? 'Lainnya') : i.kurikulum],
+    ['Model pembelajaran', i.modelPembelajaran],
+  ]
+
+  return (
+    <>
+      <Link to="/supervisi" className="mb-3 inline-flex items-center gap-1 text-sm font-medium text-slate-500 hover:text-slate-900 print:hidden">
+        <ChevronLeft className="size-4" /> Data Supervisi
+      </Link>
+
+      <p className="hidden text-center text-sm font-bold tracking-wide uppercase print:block">
+        Instrumen Supervisi Akademik Guru
+      </p>
+
+      <PageHeader
+        title={i.namaGuru}
+        description={`${i.mataPelajaran} · Kelas ${i.kelas} · ${formatTanggal(i.tanggal)}`}
+        actions={
+          <>
+            <Button variant="secondary" onClick={() => downloadCsv(`supervisi-${i.namaGuru}-${i.tanggal}.csv`, [data])}>
+              <Download /> CSV
+            </Button>
+            <Button variant="secondary" onClick={() => window.print()}>
+              <Printer /> Cetak
+            </Button>
+            {pemilik && (
+              <>
+                <Link to={`/supervisi/${id}/edit`} className={buttonClass({ variant: 'secondary' })}>
+                  <Pencil /> Ubah
+                </Link>
+                {konfirmasi ? (
+                  <span className="flex items-center gap-1 rounded-lg bg-rose-50 p-1 ring-1 ring-rose-200">
+                    <Button size="sm" variant="danger" onClick={onHapus} loading={hapus.isPending}>
+                      Ya, hapus
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setKonfirmasi(false)}>
+                      Batal
+                    </Button>
+                  </span>
+                ) : (
+                  <Button variant="ghost" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => setKonfirmasi(true)}>
+                    <Trash2 /> Hapus
+                  </Button>
+                )}
+              </>
+            )}
+          </>
+        }
+      />
+
+      <div className="space-y-6">
+        <div className="grid gap-6 lg:grid-cols-3 print:grid-cols-3">
+          <Card className="lg:col-span-2 print:col-span-2">
+            <CardHeader title="Identitas" />
+            <dl className="grid gap-x-6 gap-y-3 p-5 text-sm sm:grid-cols-2">
+              {identitasRows.map(([k, v]) => (
+                <div key={k}>
+                  <dt className="text-xs text-slate-500">{k}</dt>
+                  <dd className="font-medium text-slate-900">{v}</dd>
+                </div>
+              ))}
+            </dl>
+          </Card>
+          <Card className="flex flex-col justify-center p-5">
+            <p className="mb-2 text-sm font-medium text-slate-500">Nilai akhir</p>
+            <NilaiAkhir ringkasan={ringkasan} />
+          </Card>
+        </div>
+
+        <Card>
+          <CardHeader title="Rekapitulasi skor" />
+          <div className="p-5">
+            <TabelRingkasan ringkasan={ringkasan} />
+          </div>
+        </Card>
+
+        {ASPEK.map((a) => (
+          <Card key={a.id} className="break-inside-avoid-page">
+            <CardHeader
+              title={`${a.kode}. ${a.judul}`}
+              action={
+                <span className="text-sm font-semibold text-slate-600 tabular-nums">
+                  {ringkasan.perAspek[a.id].total} / {a.skorMaks}
+                </span>
+              }
+            />
+            <div className="p-5">
+              {a.kelompok.map((k, gi) => (
+                <div key={gi} className="mb-4 last:mb-0">
+                  {k.judul && <h3 className="mb-2 text-xs font-bold tracking-wider text-brand-700 uppercase">{k.judul}</h3>}
+                  <ul className="divide-y divide-slate-100">
+                    {k.indikator.map((ind) => {
+                      const v = data.skor[ind.id]
+                      return (
+                        <li key={ind.id} className="flex items-start justify-between gap-4 py-2.5 text-sm">
+                          <span className="flex gap-3">
+                            <span className="w-7 shrink-0 font-semibold text-slate-400">{ind.id}</span>
+                            <span className="text-slate-700">{ind.teks}</span>
+                          </span>
+                          <span
+                            className={cn('shrink-0 rounded-md px-2 py-0.5 text-xs font-bold whitespace-nowrap', v ? WARNA_SKOR[v] : 'bg-slate-100 text-slate-400')}
+                            title={v ? LABEL_SKOR[v] : 'Belum dinilai'}
+                          >
+                            {v ?? '–'}
+                            <span className="ml-1 hidden font-medium sm:inline print:inline">{v ? LABEL_SKOR[v] : ''}</span>
+                          </span>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </div>
+              ))}
+              {data.catatanAspek[a.id] && (
+                <p className="mt-3 rounded-lg bg-slate-50 p-3 text-sm whitespace-pre-line text-slate-700">
+                  <span className="mb-1 block text-xs font-semibold text-slate-500">Catatan</span>
+                  {data.catatanAspek[a.id]}
+                </p>
+              )}
+            </div>
+          </Card>
+        ))}
+
+        <Card className="break-inside-avoid-page">
+          <CardHeader title="Catatan & tindak lanjut" />
+          <dl className="grid gap-5 p-5 text-sm md:grid-cols-3 print:grid-cols-1">
+            {(
+              [
+                ['Kekuatan', catatan.kekuatan],
+                ['Area perbaikan', catatan.perbaikan],
+                ['Rekomendasi tindak lanjut', catatan.rekomendasi],
+              ] as const
+            ).map(([k, v]) => (
+              <div key={k}>
+                <dt className="mb-1 text-xs font-semibold text-slate-500">{k}</dt>
+                <dd className="whitespace-pre-line text-slate-800">{v || <span className="text-slate-400">—</span>}</dd>
+              </div>
+            ))}
+          </dl>
+        </Card>
+
+        <div className="hidden grid-cols-2 gap-8 pt-8 text-center text-sm print:grid">
+          {[
+            ['Guru yang disupervisi', i.namaGuru],
+            ['Supervisor', i.namaSupervisor],
+          ].map(([peran, nama]) => (
+            <div key={peran}>
+              <p>{peran}</p>
+              <div className="h-20" />
+              <p className="font-semibold underline">{nama}</p>
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
+  )
+}

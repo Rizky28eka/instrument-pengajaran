@@ -1,0 +1,21 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    match /supervisi/{id} {
+      // Semua supervisor yang login dapat melihat data supervisi.
+      allow read: if signedIn();
+      // Dokumen hanya dapat dibuat atas nama pengguna yang sedang login.
+      allow create: if signedIn() && request.resource.data.createdBy == request.auth.uid;
+      // Hanya pembuat dokumen yang dapat mengubah/menghapus.
+      allow update: if signedIn()
+        && resource.data.createdBy == request.auth.uid
+        && request.resource.data.createdBy == resource.data.createdBy;
+      allow delete: if signedIn() && resource.data.createdBy == request.auth.uid;
+    }
+  }
+}
