@@ -1,6 +1,10 @@
 [
   {
-    "origin": ["https://GANTI-DENGAN-DOMAIN-PRODUKSI.example"],
+    "origin": [
+      "http://localhost:5173",
+      "https://instrumen-supervisi-smp.web.app",
+      "https://instrumen-supervisi-smp.firebaseapp.com"
+    ],
     "method": ["GET", "HEAD"],
     "responseHeader": ["Content-Type", "Authorization", "X-Goog-Resumable"],
     "maxAgeSeconds": 3600

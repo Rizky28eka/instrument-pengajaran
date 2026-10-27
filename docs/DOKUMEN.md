@@ -130,8 +130,10 @@ pengunggah) — keputusan ini perlu dikonfirmasi pemilik.
    aktivasi billing adalah keputusan pemilik; tetapkan anggaran dan peringatan biaya lebih dulu.
 2. `firebase deploy --only storage --project <id>`. Karena aturan membaca Firestore, CLI meminta peran IAM lintas-layanan
    ("Firebase Rules Firestore Service Agent") — setujui hanya bila Anda memahaminya.
-3. CORS untuk unduhan lewat SDK: ganti origin di `storage.cors.json`, lalu
-   `gcloud storage buckets update gs://<bucket> --cors-file=storage.cors.json`.
+3. CORS untuk unduhan lewat SDK: `storage.cors.json` sudah berisi `http://localhost:5173` dan dua domain Hosting bawaan
+   project (`*.web.app`, `*.firebaseapp.com`); tambahkan domain khusus bila ada. Terapkan dengan
+   `gcloud storage buckets update gs://instrumen-supervisi-smp.firebasestorage.app --cors-file=storage.cors.json`
+   (perlu `gcloud auth login` oleh pemilik; nama bucket sama dengan `VITE_FIREBASE_STORAGE_BUCKET`).
 4. Uji end-to-end di project **staging** dahulu; baru setelah itu fitur ini boleh dinyatakan berfungsi di project nyata.
 5. Urutan deploy penuh: lihat OPERASIONAL.md §1 (rules Firestore + Storage sebelum hosting).
 
