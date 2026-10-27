@@ -51,6 +51,11 @@ const PESAN: Record<string, string> = {
   'auth/weak-password': 'Kata sandi minimal 6 karakter.',
   'auth/too-many-requests': 'Terlalu banyak percobaan. Coba lagi beberapa saat.',
   'auth/popup-closed-by-user': 'Jendela login Google ditutup.',
+  // Galat konfigurasi/browser yang sering menggagalkan login Google; tanpa pesan khusus pengguna hanya melihat "terjadi kesalahan".
+  'auth/popup-blocked': 'Jendela login Google diblokir browser. Izinkan popup untuk situs ini, lalu coba lagi.',
+  'auth/unauthorized-domain':
+    'Alamat aplikasi ini belum diizinkan untuk login Google. Buka lewat http://localhost atau minta pengelola menambahkannya di Firebase Authentication (Authorized domains).',
+  'auth/operation-not-allowed': 'Metode masuk ini belum diaktifkan di Firebase Authentication.',
   'auth/network-request-failed': 'Tidak ada koneksi internet.',
   'auth/missing-email': 'Masukkan alamat email.',
   'auth/requires-recent-login': 'Sesi sudah lama. Silakan masuk kembali.',

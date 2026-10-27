@@ -8,6 +8,7 @@ import { FullPageLoader } from '@/components/ui/Spinner'
 import { daftarEmail, kirimResetSandi, masukEmail, masukGoogle, pesanError } from '@/features/auth/actions'
 import { rutePerStatus } from '@/features/auth/akses'
 import { useAuth } from '@/features/auth/auth-context'
+import { GalatMemuatAkun } from '@/features/auth/GalatMemuatAkun'
 import { cn } from '@/lib/utils'
 
 const TAHUN = new Date().getFullYear()
@@ -39,6 +40,8 @@ export default function LoginPage() {
   const [resetTerkirim, setResetTerkirim] = useState(false)
 
   if (status === 'memuat') return <FullPageLoader />
+  // Sudah masuk tetapi akun gagal dimuat: jangan tampilkan formulir login lagi seolah belum ada yang terjadi.
+  if (status === 'galat') return <GalatMemuatAkun />
   // Sudah masuk: arahkan sesuai status (verifikasi email / aktivasi / dashboard).
   const tujuan = status !== 'anonim' ? rutePerStatus(status, (location.state as { from?: { pathname?: string } } | null)?.from?.pathname) : null
   if (tujuan) return <Navigate to={tujuan} replace />
