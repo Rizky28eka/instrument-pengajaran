@@ -104,9 +104,16 @@ Tidak ada yang di-deploy atau diubah di project oleh perubahan ini.
 
 ## 12. Login tidak berhasil — urutan pemeriksaan
 
-Aplikasi **belum di-deploy ke Hosting** (`instrumen-supervisi-smp.web.app` menjawab 404 "Site Not Found"); jalankan lokal
-dengan `npm run dev` dan buka **`http://localhost:5173`** (bukan `127.0.0.1` atau alamat IP jaringan — login Google hanya
-diizinkan untuk `localhost` dan domain `*.firebaseapp.com` / `*.web.app`, daftar di Authentication → Settings → Authorized domains).
+Aplikasi **tidak** di Firebase Hosting (`instrumen-supervisi-smp.web.app` menjawab 404 "Site Not Found"); versi yang berjalan ada di
+Vercel (`instrument-pengajaran.vercel.app`) dan lokal (`npm run dev` → **`http://localhost:5173`**, bukan `127.0.0.1` atau IP jaringan).
+
+- **Login Google hanya jalan di domain yang terdaftar** di Authentication → Settings → Authorized domains. Isi dengan nama host saja
+  (mis. `instrument-pengajaran.vercel.app`, tanpa `https://` dan tanpa `/login`). Setiap *preview deployment* Vercel punya host
+  sendiri yang tidak terdaftar, sehingga login Google di sana akan ditolak; login email tidak terpengaruh.
+- **Variabel `VITE_FIREBASE_*` harus diisi di Vercel** (Project Settings → Environment Variables) lalu di-redeploy; nilainya
+  tertanam saat build. `.env.local` tidak ikut ke Vercel.
+- Rute SPA (`/login`, `/dashboard`, …) butuh [vercel.json](../vercel.json) (rewrite ke `index.html`); tanpa itu membuka atau
+  me-refresh `/login` langsung menghasilkan 404 dari Vercel.
 
 Pada saat ini Authentication sudah benar: Email/Password dan Google aktif, kunci API valid. Jadi bila login gagal, lihat gejalanya:
 
