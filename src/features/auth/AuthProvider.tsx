@@ -14,7 +14,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authSiap, setAuthSiap] = useState(false)
   // Hasil langganan profil disimpan bersama uid + versi pemiliknya; hasil milik pengguna / sesi
   // sebelumnya otomatis dianggap "belum dimuat" tanpa perlu mengatur ulang state di dalam effect.
-  const [hasil, setHasil] = useState<{ uid: string; versi: number; profil: Profil | null; galat: boolean } | null>(null)
+  const [hasil, setHasil] = useState<{ uid: string; versi: number; profil: Profil | null; galat: boolean; kode?: string } | null>(null)
   // Naik setiap kali status akun dimuat ulang → langganan profil dibuat ulang dengan token baru.
   const [versi, setVersi] = useState(0)
   const uidSebelumnya = useRef<string | null>(null)
@@ -55,7 +55,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       },
       (e) => {
         console.error('Gagal membaca profil pengguna', e.code)
-        setHasil({ uid, versi, profil: null, galat: true })
+        setHasil({ uid, versi, profil: null, galat: true, kode: e.code })
       },
     )
   }, [uid, versi])
@@ -81,6 +81,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     galatProfil,
   })
 
-  const nilai = useMemo(() => ({ user, profil, status, muatUlang }), [user, profil, status, muatUlang])
+  const kodeGalat = berlaku?.kode
+  const nilai = useMemo(() => ({ user, profil, status, kodeGalat, muatUlang }), [user, profil, status, kodeGalat, muatUlang])
   return <AuthContext value={nilai}>{children}</AuthContext>
 }

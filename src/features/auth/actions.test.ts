@@ -33,6 +33,16 @@ describe('pesanError', () => {
     expect(pesanError(new PesanAplikasi('Kode undangan sudah dipakai.'))).toBe('Kode undangan sudah dipakai.')
   })
 
+  it('galat khas login Google memberi petunjuk yang bisa ditindaklanjuti, bukan pesan generik', () => {
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {})
+    expect(pesanError(new FirebaseError('auth/popup-blocked', 'x'))).toContain('popup')
+    expect(pesanError(new FirebaseError('auth/unauthorized-domain', 'x'))).toContain('belum diizinkan')
+    expect(pesanError(new FirebaseError('auth/operation-not-allowed', 'x'))).toContain('belum diaktifkan')
+    // Kode yang dikenal tidak perlu dicatat sebagai "tidak dikenal".
+    expect(err).not.toHaveBeenCalled()
+    err.mockRestore()
+  })
+
   it('kode Firestore yang dikenal dipetakan', () => {
     expect(pesanError(new FirebaseError('permission-denied', 'x'))).toContain('tidak memiliki izin')
     expect(pesanError(new FirebaseError('unavailable', 'x'))).toContain('Periksa koneksi')

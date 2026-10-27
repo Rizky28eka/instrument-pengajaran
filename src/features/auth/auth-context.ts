@@ -7,6 +7,8 @@ export interface AuthState {
   /** undefined = memuat, null = belum punya profil (belum menebus undangan). */
   profil: Profil | null | undefined
   status: StatusAkses
+  /** Kode galat Firestore saat status `galat` (mis. `permission-denied`); hanya untuk memilih petunjuk, bukan untuk ditampilkan mentah. */
+  kodeGalat?: string
   /** Memuat ulang status akun (mis. setelah verifikasi email) dan menyegarkan token. */
   muatUlang: () => Promise<void>
 }

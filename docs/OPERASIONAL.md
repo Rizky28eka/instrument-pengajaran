@@ -101,3 +101,22 @@ Blaze (keputusan Anda), deploy `storage.rules` dengan persetujuan IAM lintas-lay
 [docs/DOKUMEN.md](DOKUMEN.md). Kategori *pengajuan guru* mati secara bawaan; diaktifkan per sekolah dengan menulis
 `fitur: { pengirimanDokumenGuru: true }` pada dokumen `schools/{id}` di konsol (klien tidak bisa menulis dokumen sekolah).
 Tidak ada yang di-deploy atau diubah di project oleh perubahan ini.
+
+## 12. Login tidak berhasil — urutan pemeriksaan
+
+Aplikasi **belum di-deploy ke Hosting** (`instrumen-supervisi-smp.web.app` menjawab 404 "Site Not Found"); jalankan lokal
+dengan `npm run dev` dan buka **`http://localhost:5173`** (bukan `127.0.0.1` atau alamat IP jaringan — login Google hanya
+diizinkan untuk `localhost` dan domain `*.firebaseapp.com` / `*.web.app`, daftar di Authentication → Settings → Authorized domains).
+
+Pada saat ini Authentication sudah benar: Email/Password dan Google aktif, kunci API valid. Jadi bila login gagal, lihat gejalanya:
+
+| Gejala | Penyebab yang paling mungkin |
+|---|---|
+| Toast "Email atau kata sandi salah." | Akun belum ada di project ini. Daftar dulu, atau buat admin pertama (bagian 2). |
+| Toast soal popup / alamat belum diizinkan | Popup diblokir browser, atau aplikasi dibuka dari alamat yang bukan `localhost`. |
+| Setelah masuk, layar **"Akun tidak dapat dimuat"** (konsol: `Gagal membaca profil pengguna permission-denied`) | Aturan Firestore di project belum di-deploy atau bukan versi repo ini. Lihat bagian 1 (butuh persetujuan pemilik untuk deploy). |
+| Setelah masuk, diarahkan ke **/verifikasi-email** | Email belum diverifikasi. Klik tautan di email, lalu muat ulang. |
+| Setelah masuk, diarahkan ke **/aktivasi** | Akun belum punya profil. Butuh kode undangan dari admin sekolah — dan sekolah + admin pertama harus dibuat manual dulu (bagian 2). |
+
+Sebelumnya, kasus "Akun tidak dapat dimuat" tidak tampil di halaman login (formulir yang sama muncul lagi tanpa pesan, sehingga
+tampak seperti login yang rusak). Sekarang selalu tampil, lengkap dengan tombol **Keluar**.

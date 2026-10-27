@@ -1,23 +1,9 @@
 import type { ReactNode } from 'react'
 import { Navigate, Outlet, useLocation } from 'react-router'
-import { Button } from '@/components/ui/Button'
 import { FullPageLoader } from '@/components/ui/Spinner'
 import { rutePerStatus, type StatusAkses } from './akses'
 import { useAuth } from './auth-context'
-
-function GalatMemuatAkun() {
-  return (
-    <div className="grid min-h-svh place-items-center px-4 text-center">
-      <div className="max-w-sm">
-        <h1 className="text-lg font-bold text-slate-900">Akun tidak dapat dimuat</h1>
-        <p className="mt-2 text-sm text-slate-600">Periksa koneksi internet Anda, lalu muat ulang halaman. Data Anda tidak hilang.</p>
-        <Button className="mt-5" onClick={() => window.location.reload()}>
-          Muat ulang
-        </Button>
-      </div>
-    </div>
-  )
-}
+import { GalatMemuatAkun } from './GalatMemuatAkun'
 
 /**
  * Guard untuk seluruh halaman aplikasi. Hanya MENGARAHKAN pengguna — akses data yang
