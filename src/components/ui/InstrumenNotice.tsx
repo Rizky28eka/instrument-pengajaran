@@ -1,12 +1,10 @@
 import { TriangleAlert } from 'lucide-react'
-import { semuaIndikator, type Instrumen } from '@/data/instrumen'
-import { indikatorBelumTerkonfirmasi } from '@/data/konfirmasi'
+import type { Instrumen } from '@/data/instrumen'
 import { cn } from '@/lib/utils'
 
 /** Peringatan bahwa instrumen belum disahkan; tidak tampil untuk instrumen berstatus resmi. */
 export function InstrumenNotice({ instrumen, className }: { instrumen: Instrumen; className?: string }) {
   if (instrumen.status === 'resmi') return null
-  const rancangan = indikatorBelumTerkonfirmasi(instrumen).length
   return (
     <p
       role="note"
@@ -19,15 +17,6 @@ export function InstrumenNotice({ instrumen, className }: { instrumen: Instrumen
       <span>
         Instrumen versi <b>{instrumen.versi}</b> masih sementara dan belum disahkan. Hasilnya belum dapat dipakai sebagai penilaian
         resmi.
-        {rancangan > 0 && (
-          <>
-            {' '}
-            <b>
-              {rancangan} dari {semuaIndikator(instrumen).length} indikator
-            </b>{' '}
-            masih rancangan awal yang belum dikonfirmasi dengan dokumen sumber.
-          </>
-        )}
       </span>
     </p>
   )

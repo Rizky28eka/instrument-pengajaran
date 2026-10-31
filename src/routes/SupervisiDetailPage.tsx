@@ -1,27 +1,20 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
-import { ChevronLeft, Download, FileQuestion, Pencil, Printer, Trash2, Undo2 } from 'lucide-react'
+import { ChevronLeft, Download, FileQuestion, Pencil, Printer, Trash2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { PageHeader } from '@/components/layout/PageHeader'
 import { Button } from '@/components/ui/Button'
 import { buttonClass } from '@/components/ui/button-styles'
 import { Card, CardHeader } from '@/components/ui/Card'
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
-import { PanelGalat } from '@/components/ui/PanelGalat'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { InstrumenNotice } from '@/components/ui/InstrumenNotice'
 import { PageLoader } from '@/components/ui/Spinner'
-import { Badge } from '@/components/ui/Badge'
 import { SKALA } from '@/data/instrumen'
-import { belumTerkonfirmasi } from '@/data/konfirmasi'
 import { pesanError } from '@/features/auth/actions'
-import { useProfilAktif } from '@/features/auth/auth-context'
-import { DokumenPanel } from '@/features/documents/components/DokumenPanel'
-import { RiwayatPanel } from '@/features/supervisi/components/RiwayatPanel'
+import { useAuth } from '@/features/auth/auth-context'
 import { NilaiAkhir, TabelRingkasan } from '@/features/supervisi/components/RingkasanSkor'
 import { downloadCsv } from '@/features/supervisi/csv'
-import { TindakLanjutPanel } from '@/features/tindak-lanjut/components/TindakLanjutPanel'
-import { useHapusSupervisi, usePulihkanSupervisi, useSupervisi } from '@/features/supervisi/queries'
+import { useDeleteSupervisi, useSupervisi } from '@/features/supervisi/queries'
 import { cn, formatTanggal } from '@/lib/utils'
 
 const LABEL_SKOR = Object.fromEntries(SKALA.map((s) => [s.nilai, s.label])) as Record<number, string>
@@ -34,15 +27,13 @@ const WARNA_SKOR: Record<number, string> = {
 
 export default function SupervisiDetailPage() {
   const { id = '' } = useParams()
-  const profil = useProfilAktif()
+  const { user } = useAuth()
   const navigate = useNavigate()
-  const { data, isPending, isError, error, refetch } = useSupervisi(id)
-  const hapus = useHapusSupervisi()
-  const pulihkan = usePulihkanSupervisi()
+  const { data, isPending } = useSupervisi(id)
+  const hapus = useDeleteSupervisi()
   const [konfirmasi, setKonfirmasi] = useState(false)
 
   if (isPending) return <PageLoader />
-  if (isError) return <Card><PanelGalat error={error} onCoba={() => void refetch()} /></Card>
   if (!data)
     return (
       <Card>
@@ -56,25 +47,13 @@ export default function SupervisiDetailPage() {
     )
 
   const { identitas: i, ringkasan, catatan } = data
-  const admin = profil.role === 'admin'
-  const boleh = data.createdBy === profil.uid || admin
-  const terhapus = !!data.deletedAt
+  const pemilik = data.createdBy === user?.uid
 
   async function onHapus() {
     try {
-      await hapus.mutateAsync(data!)
-      toast.success('Data supervisi dihapus. Admin sekolah dapat memulihkannya.')
+      await hapus.mutateAsync(id)
+      toast.success('Data supervisi dihapus.')
       navigate('/supervisi', { replace: true })
-    } catch (e) {
-      toast.error(pesanError(e))
-      setKonfirmasi(false)
-    }
-  }
-
-  async function onPulihkan() {
-    try {
-      await pulihkan.mutateAsync(data!)
-      toast.success('Data dipulihkan.')
     } catch (e) {
       toast.error(pesanError(e))
     }
@@ -103,7 +82,7 @@ export default function SupervisiDetailPage() {
       </p>
 
       <PageHeader
-        title={data.guruNama}
+        title={i.namaGuru}
         description={`${i.mataPelajaran} · Kelas ${i.kelas} · ${formatTanggal(i.tanggal)}`}
         actions={
           <>
@@ -113,52 +92,32 @@ export default function SupervisiDetailPage() {
             <Button variant="secondary" onClick={() => window.print()}>
               <Printer /> Cetak
             </Button>
-            {terhapus && admin && (
-              <Button variant="secondary" onClick={onPulihkan} loading={pulihkan.isPending}>
-                <Undo2 /> Pulihkan
-              </Button>
-            )}
-            {!terhapus && boleh && (
+            {pemilik && (
               <>
                 <Link to={`/supervisi/${id}/edit`} className={buttonClass({ variant: 'secondary' })}>
                   <Pencil /> Ubah
                 </Link>
-                <Button variant="ghost" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => setKonfirmasi(true)}>
-                  <Trash2 /> Hapus
-                </Button>
+                {konfirmasi ? (
+                  <span className="flex items-center gap-1 rounded-lg bg-rose-50 p-1 ring-1 ring-rose-200">
+                    <Button size="sm" variant="danger" onClick={onHapus} loading={hapus.isPending}>
+                      Ya, hapus
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setKonfirmasi(false)}>
+                      Batal
+                    </Button>
+                  </span>
+                ) : (
+                  <Button variant="ghost" className="text-rose-600 hover:bg-rose-50 hover:text-rose-700" onClick={() => setKonfirmasi(true)}>
+                    <Trash2 /> Hapus
+                  </Button>
+                )}
               </>
             )}
           </>
         }
       />
 
-      <ConfirmDialog
-        open={konfirmasi}
-        judul="Hapus data supervisi ini?"
-        labelYa="Hapus"
-        varian="danger"
-        memproses={hapus.isPending}
-        onYa={() => void onHapus()}
-        onBatal={() => setKonfirmasi(false)}
-      >
-        <p>
-          Supervisi <b>{data.guruNama}</b> tanggal {formatTanggal(i.tanggal)} akan disembunyikan dari daftar. Admin sekolah masih dapat
-          memulihkannya.
-        </p>
-      </ConfirmDialog>
-
       <div className="space-y-6">
-        {terhapus && (
-          <p role="status" className="rounded-lg bg-slate-100 px-3 py-2 text-sm text-slate-700 ring-1 ring-slate-200 print:hidden">
-            Data ini telah dihapus{data.deletedAt ? ` pada ${formatTanggal(data.deletedAt.toISOString().slice(0, 10))}` : ''} dan hanya terlihat oleh admin sekolah.
-          </p>
-        )}
-        {!data.snapshotSah && (
-          <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800 ring-1 ring-rose-200">
-            Data instrumen pada dokumen ini rusak, sehingga nilai dihitung ulang dengan instrumen standar dan mungkin tidak sesuai
-            aslinya. Hubungi admin sekolah.
-          </p>
-        )}
         <InstrumenNotice instrumen={data.instrumen} />
         <div className="grid gap-6 lg:grid-cols-3 print:grid-cols-3">
           <Card className="lg:col-span-2 print:col-span-2">
@@ -206,14 +165,7 @@ export default function SupervisiDetailPage() {
                         <li key={ind.id} className="flex items-start justify-between gap-4 py-2.5 text-sm">
                           <span className="flex gap-3">
                             <span className="w-7 shrink-0 font-semibold text-slate-400">{ind.id}</span>
-                            <span className="text-slate-700">
-                              {ind.teks}
-                              {belumTerkonfirmasi(data.instrumen.versi, ind.id) && (
-                                <Badge nada="kuning" className="ml-2 align-middle">
-                                  Rancangan
-                                </Badge>
-                              )}
-                            </span>
+                            <span className="text-slate-700">{ind.teks}</span>
                           </span>
                           <span
                             className={cn('shrink-0 rounded-md px-2 py-0.5 text-xs font-bold whitespace-nowrap', v ? WARNA_SKOR[v] : 'bg-slate-100 text-slate-400')}
@@ -255,22 +207,6 @@ export default function SupervisiDetailPage() {
             ))}
           </dl>
         </Card>
-
-        {!terhapus && (
-          <TindakLanjutPanel rujukan={{ id, schoolId: data.schoolId, guruId: data.guruId, guruNama: data.guruNama }} boleh />
-        )}
-
-        {!terhapus && (
-          <DokumenPanel
-            schoolId={data.schoolId}
-            relasi={{ supervisiId: id }}
-            kategori={['pendukung-supervisi', 'bukti-pelaksanaan', 'lampiran-rekomendasi']}
-            judul="Dokumen pendukung & bukti"
-            deskripsi="Lampiran hanya dapat dibuka oleh pengguna sekolah ini. Mengunggah dokumen tidak mengubah skor."
-          />
-        )}
-
-        <RiwayatPanel id={id} />
 
         <div className="hidden grid-cols-2 gap-8 pt-8 text-center text-sm print:grid">
           {[

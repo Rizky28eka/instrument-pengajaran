@@ -1,7 +1,5 @@
 import { Controller, useFormContext } from 'react-hook-form'
 import { SKALA, type Aspek } from '@/data/instrumen'
-import { belumTerkonfirmasi } from '@/data/konfirmasi'
-import { Badge } from '@/components/ui/Badge'
 import { Field, Textarea } from '@/components/ui/Field'
 import { ScoreInput } from '@/components/ui/ScoreInput'
 import { cn } from '@/lib/utils'
@@ -19,7 +17,7 @@ export function SkalaLegend() {
   )
 }
 
-export function AspekStep({ aspek, versi }: { aspek: Aspek; /** Versi instrumen yang dipakai dokumen ini (untuk penanda indikator rancangan). */ versi: string }) {
+export function AspekStep({ aspek }: { aspek: Aspek }) {
   const { control, register } = useFormContext<SupervisiFormInput>()
 
   return (
@@ -49,12 +47,7 @@ export function AspekStep({ aspek, versi }: { aspek: Aspek; /** Versi instrumen 
                         {ind.id}
                       </span>
                       <div>
-                        <p id={`ind-${ind.id}`} className="text-sm leading-relaxed text-slate-800">{ind.teks}</p>
-                        {belumTerkonfirmasi(versi, ind.id) && (
-                          <Badge nada="kuning" className="mt-1">
-                            Rancangan awal · belum terkonfirmasi
-                          </Badge>
-                        )}
+                        <p className="text-sm leading-relaxed text-slate-800">{ind.teks}</p>
                         {fieldState.error && (
                           <p className="mt-1 text-xs font-medium text-rose-600">{fieldState.error.message}</p>
                         )}
@@ -63,7 +56,6 @@ export function AspekStep({ aspek, versi }: { aspek: Aspek; /** Versi instrumen 
                     <div className="shrink-0 self-end sm:self-auto">
                       <ScoreInput
                         label={`Skor ${ind.id}`}
-                        labelledBy={`ind-${ind.id}`}
                         value={field.value}
                         onChange={field.onChange}
                         onBlur={field.onBlur}

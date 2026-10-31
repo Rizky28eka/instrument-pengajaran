@@ -39,13 +39,6 @@ function contoh(sebagian: { namaGuru?: string; namaSekolah?: string; kekuatan?: 
   const skor = Object.fromEntries(semuaIndikator(INSTRUMEN_AKTIF).map((i) => [i.id, 3]))
   return {
     id: 'x',
-    schoolId: 's1',
-    guruId: 'g1',
-    guruNama: sebagian.namaGuru ?? 'Budi',
-    rev: 1,
-    updatedBy: 'u',
-    deletedAt: null,
-    deletedBy: null,
     identitas: {
       namaSekolah: sebagian.namaSekolah ?? 'SMP Harapan',
       namaGuru: sebagian.namaGuru ?? 'Budi',
@@ -60,7 +53,6 @@ function contoh(sebagian: { namaGuru?: string; namaSekolah?: string; kekuatan?: 
     catatanAspek: {},
     catatan: { kekuatan: sebagian.kekuatan ?? '', perbaikan: '', rekomendasi: '' },
     instrumen: INSTRUMEN_AKTIF,
-    snapshotSah: true,
     ringkasan: hitungRingkasan(skor, INSTRUMEN_AKTIF),
     createdBy: 'u',
     createdByName: 'u',

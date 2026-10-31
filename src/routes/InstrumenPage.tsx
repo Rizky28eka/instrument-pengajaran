@@ -1,6 +1,4 @@
 import { PageHeader } from '@/components/layout/PageHeader'
-import { Badge } from '@/components/ui/Badge'
-import { belumTerkonfirmasi } from '@/data/konfirmasi'
 import { InstrumenNotice } from '@/components/ui/InstrumenNotice'
 import { Card, CardHeader } from '@/components/ui/Card'
 import { PredikatBadge } from '@/components/ui/PredikatBadge'
@@ -67,14 +65,7 @@ export default function InstrumenPage() {
                     {k.indikator.map((ind) => (
                       <li key={ind.id} className="flex gap-3 text-sm">
                         <span className="w-7 shrink-0 font-semibold text-slate-400">{ind.id}</span>
-                        <span className="text-slate-700">
-                          {ind.teks}
-                          {belumTerkonfirmasi(INSTRUMEN_AKTIF.versi, ind.id) && (
-                            <Badge nada="kuning" className="ml-2 align-middle">
-                              Rancangan · belum terkonfirmasi
-                            </Badge>
-                          )}
-                        </span>
+                        <span className="text-slate-700">{ind.teks}</span>
                       </li>
                     ))}
                   </ol>

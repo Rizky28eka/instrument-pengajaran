@@ -2,34 +2,51 @@
 
 Aplikasi web digital untuk supervisi akademik guru **SMP · Kurikulum Merdeka**, dipakai kepala sekolah / supervisor akademik.
 
-**Stack:** React 19 · Vite 8 · TypeScript · Tailwind CSS 4 · React Router 8 · TanStack Query · React Hook Form + Zod · Firebase (Auth + Firestore + Storage)
+**Stack:** React 19 · Vite 8 · TypeScript · Tailwind CSS 4 · React Router 8 · TanStack Query · React Hook Form + Zod · Firebase (Auth + Firestore)
 
 ## Fitur
 
-- Akses per sekolah: akun baru **tidak punya akses** sampai menebus kode undangan dari admin sekolah; email wajib terverifikasi
-- Form supervisi bertahap (identitas → 5 aspek skala 1–4 → catatan), nilai/predikat otomatis, draf aman di perangkat
-- Instrumen **berversi**: tiap dokumen menyimpan snapshot instrumennya; status `provisional` ditandai jelas di UI
-- Master data guru (nonaktifkan, tidak dihapus), riwayat dan tren per guru
-- Tindak lanjut terstruktur (status, penanggung jawab, tenggat, catatan, riwayat) + ringkasan dashboard
-- Soft-delete + pemulihan oleh admin, riwayat perubahan, perlindungan terhadap penimpaan (lost update)
-- Ekspor CSV (aman dari formula injection) dan cetak A4
-- **Dokumen & bukti** (PDF, Word, Excel, CSV, JPG/PNG): unggah dengan progres, batal, coba lagi, dan deteksi duplikat;
-  versi; pratinjau PDF/gambar; unduh terotorisasi (tanpa URL publik); hapus-lunak/pulihkan; antrean review untuk pengajuan guru.
-  Lihat [docs/DOKUMEN.md](docs/DOKUMEN.md) — **Firebase Storage belum aktif di project**, fitur ini baru teruji di emulator
-- Indikator instrumen yang **belum terkonfirmasi** dengan dokumen sumber (13 dari 42) ditandai di UI
+- Login email/kata sandi atau Google (Firebase Auth)
+- Form supervisi bertahap: identitas → 5 aspek (skala 1–4) → catatan & rekomendasi
+- Nilai, predikat, dan skor per aspek dihitung otomatis; draf tersimpan otomatis di browser
+- Dashboard: rata-rata nilai, capaian per aspek, distribusi predikat, guru yang perlu pendampingan
+- Daftar data dengan pencarian & filter, detail, ubah, hapus, **cetak** (A4) dan **ekspor CSV** (siap impor ke Google Sheets)
+- Cache offline Firestore untuk koneksi sekolah yang kurang stabil
 
 ## Menjalankan
 
 ```bash
 npm install
-cp .env.example .env.local   # isi dari Firebase Console (lihat docs/OPERASIONAL.md untuk bootstrap sekolah + admin)
+cp .env.example .env.local   # isi dengan kredensial Web App Firebase
 npm run dev
 ```
 
-Pengujian: `npm run check` (cepat) · `npm run test:rules` (emulator; butuh Java + `firebase-tools`) · `npm run test:e2e` (Playwright, Chrome terpasang).
+Skrip lain: `npm run build` · `npm run typecheck` · `npm run lint` · `npm test`
 
-> **Penting sebelum dipakai nyata:** baca [docs/OPERASIONAL.md](docs/OPERASIONAL.md) — urutan deploy rules/indeks,
-> pembuatan admin pertama, region database (`nam5`, bukan Jakarta), pemulihan data, dan hal yang belum dikerjakan.
+## Setup Firebase
+
+Project sudah dibuat: **`instrumen-supervisi-smp`** ([console](https://console.firebase.google.com/project/instrumen-supervisi-smp/overview)), terhubung lewat [.firebaserc](.firebaserc). Firestore (`asia-southeast2`) aktif dan aturannya sudah ter-deploy.
+
+Di mesin baru:
+
+```bash
+npm install
+firebase apps:sdkconfig WEB 1:599822176340:web:87b1b9bffb646e918bddc1 --project instrumen-supervisi-smp
+# salin nilainya ke .env.local mengikuti format .env.example
+npm run dev
+```
+
+**Wajib dilakukan manual sekali** — [Authentication → Sign-in method](https://console.firebase.google.com/project/instrumen-supervisi-smp/authentication/providers): klik *Get started*, lalu aktifkan *Email/Password* dan *Google* (pilih email dukungan project). Tanpa ini halaman login akan menampilkan galat.
+
+Untuk domain produksi, tambahkan domain tersebut di *Authentication → Settings → Authorized domains*.
+
+Aturan keamanan di [firestore.rules](firestore.rules): semua pengguna login dapat membaca; hanya pembuat dokumen yang dapat mengubah/menghapus. Deploy ulang setelah mengubahnya:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+Hosting (opsional): `npm run build && firebase deploy --only hosting`.
 
 ## Struktur data
 
@@ -49,4 +66,4 @@ Predikat dari nilai = skor ÷ skor maksimal × 100: **≥86 Sangat Baik · ≥71
 
 Seluruh indikator ada di [src/data/instrumen.ts](src/data/instrumen.ts); form, skor, dan ekspor dibangun dari sana.
 
-> **Perlu dikonfirmasi:** dokumen sumber berhenti pada indikator C3 (aspek Asesmen). Indikator **C4–C6** serta seluruh isi aspek **D (Media & Teknologi)** dan **E (Evaluasi & Tindak Lanjut)** adalah rancangan awal dan harus disesuaikan dengan instrumen resmi. Indikator itu ditandai di UI ([src/data/konfirmasi.ts](src/data/konfirmasi.ts), [docs/INSTRUMEN-INVENTARIS.md](docs/INSTRUMEN-INVENTARIS.md)). Untuk melengkapinya buat berkas versi baru; jangan mengedit versi lama.
+> **Perlu dikonfirmasi:** dokumen sumber berhenti pada indikator C3 (aspek Asesmen). Indikator **C4–C6** serta seluruh isi aspek **D (Media & Teknologi)** dan **E (Evaluasi & Tindak Lanjut)** adalah rancangan awal dan harus disesuaikan dengan instrumen resmi. Cukup edit file tersebut.

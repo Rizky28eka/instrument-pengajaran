@@ -1,18 +1,14 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router'
-import { BookOpen, ClipboardList, FilePlus, FolderOpen, GraduationCap, LayoutDashboard, ListChecks, LogOut, Menu, ShieldCheck, UsersRound, X } from 'lucide-react'
+import { BookOpen, ClipboardList, FilePlus, GraduationCap, LayoutDashboard, LogOut, Menu, X } from 'lucide-react'
 import { useAuth } from '@/features/auth/auth-context'
-import { useKeluar } from '@/features/auth/useKeluar'
+import { keluar } from '@/features/auth/actions'
 import { cn } from '@/lib/utils'
 
 const NAV = [
   { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard, end: true },
   { to: '/supervisi', label: 'Data Supervisi', icon: ClipboardList, end: true },
   { to: '/supervisi/baru', label: 'Supervisi Baru', icon: FilePlus, end: true },
-  { to: '/tindak-lanjut', label: 'Tindak Lanjut', icon: ListChecks, end: true },
-  { to: '/dokumen', label: 'Dokumen', icon: FolderOpen, end: true },
-  { to: '/guru', label: 'Guru', icon: UsersRound, end: true },
-  { to: '/pengguna', label: 'Pengguna', icon: ShieldCheck, end: true, adminSaja: true },
   { to: '/instrumen', label: 'Instrumen', icon: BookOpen, end: true },
 ]
 
@@ -30,15 +26,15 @@ function Brand() {
   )
 }
 
-function Sidebar({ onNavigate, onKeluar }: { onNavigate?: () => void; onKeluar: () => void }) {
-  const { user, profil } = useAuth()
-  const nama = profil?.nama || user?.displayName || user?.email || 'Pengguna'
+function Sidebar({ onNavigate }: { onNavigate?: () => void }) {
+  const { user } = useAuth()
+  const nama = user?.displayName || user?.email || 'Pengguna'
 
   return (
     <div className="flex h-full flex-col gap-6 p-4">
       <Brand />
       <nav className="flex flex-1 flex-col gap-1">
-        {NAV.filter((n) => !n.adminSaja || profil?.role === 'admin').map(({ to, label, icon: Icon, end }) => (
+        {NAV.map(({ to, label, icon: Icon, end }) => (
           <NavLink
             key={to}
             to={to}
@@ -62,11 +58,11 @@ function Sidebar({ onNavigate, onKeluar }: { onNavigate?: () => void; onKeluar: 
         </div>
         <div className="min-w-0 flex-1">
           <p className="truncate text-sm font-semibold text-slate-900">{nama}</p>
-          <p className="truncate text-xs text-slate-500">{profil?.role === 'admin' ? 'Admin sekolah' : 'Supervisor'}</p>
+          <p className="truncate text-xs text-slate-500">{user?.email}</p>
         </div>
         <button
           type="button"
-          onClick={onKeluar}
+          onClick={() => keluar()}
           className="rounded-md p-1.5 text-slate-500 hover:bg-white hover:text-rose-600"
           title="Keluar"
           aria-label="Keluar"
@@ -80,37 +76,16 @@ function Sidebar({ onNavigate, onKeluar }: { onNavigate?: () => void; onKeluar: 
 
 export function AppLayout() {
   const [open, setOpen] = useState(false)
-  const { mulaiKeluar, dialog } = useKeluar()
   const { pathname } = useLocation()
-  const drawer = useRef<HTMLDialogElement>(null)
-  const konten = useRef<HTMLElement>(null)
-  const pertama = useRef(true)
 
   useEffect(() => {
     window.scrollTo({ top: 0 })
-    // Setelah berpindah halaman, pindahkan fokus ke konten supaya pembaca layar / keyboard tidak tertinggal di menu.
-    if (pertama.current) pertama.current = false
-    else konten.current?.focus({ preventScroll: true })
   }, [pathname])
-
-  // <dialog> asli: fokus terkunci di dalamnya, Escape menutup, dan fokus kembali ke tombol menu.
-  useEffect(() => {
-    const d = drawer.current
-    if (!d) return
-    if (open && !d.open) d.showModal()
-    if (!open && d.open) d.close()
-  }, [open])
 
   return (
     <div className="min-h-svh lg:pl-64 print:pl-0">
-      <a
-        href="#konten"
-        className="sr-only focus:not-sr-only focus:fixed focus:top-3 focus:left-3 focus:z-50 focus:rounded-md focus:bg-white focus:px-3 focus:py-2 focus:shadow-lg"
-      >
-        Lewati ke konten
-      </a>
       <aside className="fixed inset-y-0 left-0 z-30 hidden w-64 border-r border-slate-200 bg-white lg:block print:hidden">
-        <Sidebar onKeluar={() => void mulaiKeluar()} />
+        <Sidebar />
       </aside>
 
       <header className="sticky top-0 z-20 flex items-center justify-between border-b border-slate-200 bg-white/90 px-4 py-3 backdrop-blur lg:hidden print:hidden">
@@ -125,30 +100,26 @@ export function AppLayout() {
         </button>
       </header>
 
-      <dialog
-        ref={drawer}
-        aria-label="Menu navigasi"
-        onClose={() => setOpen(false)}
-        onClick={(e) => {
-          if (e.target === drawer.current) setOpen(false) // klik di area gelap
-        }}
-        className="fixed inset-y-0 left-0 m-0 h-dvh max-h-none w-72 max-w-[85vw] overflow-y-auto bg-white p-0 text-slate-800 shadow-xl backdrop:bg-slate-900/40 lg:hidden"
-      >
-        <button
-          type="button"
-          onClick={() => setOpen(false)}
-          className="absolute top-4 right-3 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
-          aria-label="Tutup menu"
-        >
-          <X className="size-5" />
-        </button>
-        <Sidebar onNavigate={() => setOpen(false)} onKeluar={() => void mulaiKeluar()} />
-      </dialog>
+      {open && (
+        <div className="fixed inset-0 z-40 lg:hidden" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-slate-900/40 animate-fade-in" onClick={() => setOpen(false)} />
+          <div className="absolute inset-y-0 left-0 w-72 bg-white shadow-xl animate-fade-in">
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="absolute top-4 right-3 rounded-lg p-1.5 text-slate-500 hover:bg-slate-100"
+              aria-label="Tutup menu"
+            >
+              <X className="size-5" />
+            </button>
+            <Sidebar onNavigate={() => setOpen(false)} />
+          </div>
+        </div>
+      )}
 
-      <main id="konten" ref={konten} tabIndex={-1} className="mx-auto max-w-6xl px-4 py-6 outline-none sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">
+      <main className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:px-8 lg:py-8 print:max-w-none print:p-0">
         <Outlet />
       </main>
-      {dialog}
     </div>
   )
 }
