@@ -10,7 +10,7 @@ export interface Langkah {
 
 export function buatLangkah(instrumen: Instrumen): Langkah[] {
   return [
-    { id: 'identitas', judul: 'Identitas', fields: ['guruId', 'identitas'] },
+    { id: 'identitas', judul: 'Identitas', fields: ['identitas'] },
     ...instrumen.aspek.map((a) => ({
       id: a.id,
       judul: a.judul,
@@ -23,7 +23,7 @@ export function buatLangkah(instrumen: Instrumen): Langkah[] {
 /** Indeks langkah pertama yang memiliki error validasi, atau -1. */
 export function langkahDenganError(langkah: Langkah[], instrumen: Instrumen, errors: FieldErrors<SupervisiFormInput>) {
   return langkah.findIndex((l) => {
-    if (l.id === 'identitas') return !!errors.identitas || !!errors.guruId
+    if (l.id === 'identitas') return !!errors.identitas
     if (l.id === 'catatan') return !!errors.catatan
     return instrumen.aspek.find((a) => a.id === l.id)!.indikator.some((i) => errors.skor?.[i.id])
   })

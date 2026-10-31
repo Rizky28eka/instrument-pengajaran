@@ -7,9 +7,6 @@ interface ImportMetaEnv {
   readonly VITE_FIREBASE_STORAGE_BUCKET: string
   readonly VITE_FIREBASE_MESSAGING_SENDER_ID: string
   readonly VITE_FIREBASE_APP_ID: string
-  /** 'true' hanya pada mode e2e: memakai Firebase Emulator. */
-  readonly VITE_USE_EMULATOR?: string
-  readonly VITE_EMULATOR_HOST?: string
 }
 
 interface ImportMeta {

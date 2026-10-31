@@ -12,12 +12,8 @@ import { ProgressBar } from '@/components/ui/ProgressBar'
 import { PageLoader } from '@/components/ui/Spinner'
 import { ASPEK } from '@/data/instrumen'
 import { useAuth } from '@/features/auth/auth-context'
-import { PanelGalat } from '@/components/ui/PanelGalat'
 import type { Supervisi } from '@/features/supervisi/api'
-import { BATAS_TERBARU } from '@/features/supervisi/api'
-import { useSupervisiTerbaru } from '@/features/supervisi/queries'
-import { ringkasTindakLanjut } from '@/features/tindak-lanjut/logic'
-import { useTindakLanjutSekolah } from '@/features/tindak-lanjut/queries'
+import { useSupervisiList } from '@/features/supervisi/queries'
 import { PREDIKAT, predikatDari } from '@/lib/scoring'
 import { cn, formatNilai, formatTanggal, hariIniISO } from '@/lib/utils'
 
@@ -29,8 +25,7 @@ function hitungStatistik(data: Supervisi[]) {
   const bulanIni = hariIniISO().slice(0, 7)
   return {
     total: data.length,
-    // Dihitung dari ID guru (master data), bukan dari nama yang diketik.
-    guru: new Set(data.map((d) => d.guruId)).size,
+    guru: new Set(data.map((d) => d.identitas.namaGuru.trim().toLowerCase())).size,
     rata: rataRata(data.map((d) => d.ringkasan.nilai)),
     bulanIni: data.filter((d) => d.identitas.tanggal.startsWith(bulanIni)).length,
     // Aspek dicocokkan lewat id; dokumen dari versi instrumen lain yang tak memuat aspek itu dilewati.
@@ -59,13 +54,10 @@ function StatCard({ icon: Icon, label, value, hint }: { icon: LucideIcon; label:
 }
 
 export default function DashboardPage() {
-  const { profil } = useAuth()
-  const terbaru = useSupervisiTerbaru()
-  const data = useMemo(() => terbaru.data?.item ?? [], [terbaru.data])
+  const { user } = useAuth()
+  const { data = [], isPending } = useSupervisiList()
   const s = useMemo(() => hitungStatistik(data), [data])
-  const tindak = useTindakLanjutSekolah()
-  const ringkasTindak = useMemo(() => (tindak.data ? ringkasTindakLanjut(tindak.data.item, hariIniISO()) : null), [tindak.data])
-  const sapaan = profil?.nama?.split(' ')[0]
+  const sapaan = user?.displayName?.split(' ')[0]
 
   const tombolBaru = (
     <Link to="/supervisi/baru" className={buttonClass()}>
@@ -73,16 +65,7 @@ export default function DashboardPage() {
     </Link>
   )
 
-  if (terbaru.isPending) return <PageLoader />
-  if (terbaru.isError)
-    return (
-      <>
-        <PageHeader title="Dashboard" description="Ringkasan hasil supervisi akademik guru." />
-        <Card>
-          <PanelGalat error={terbaru.error} onCoba={() => void terbaru.refetch()} />
-        </Card>
-      </>
-    )
+  if (isPending) return <PageLoader />
 
   return (
     <>
@@ -92,11 +75,6 @@ export default function DashboardPage() {
         actions={tombolBaru}
       />
 
-      {terbaru.data?.terpotong && (
-        <p role="note" className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">
-          Statistik dihitung dari {BATAS_TERBARU} supervisi terbaru.
-        </p>
-      )}
       {data.length === 0 ? (
         <Card>
           <EmptyState
@@ -190,7 +168,7 @@ export default function DashboardPage() {
                   <li key={d.id}>
                     <Link to={`/supervisi/${d.id}`} className="flex items-center justify-between gap-3 px-5 py-3 hover:bg-slate-50">
                       <div className="min-w-0">
-                        <p className="truncate font-medium text-slate-900">{d.guruNama}</p>
+                        <p className="truncate font-medium text-slate-900">{d.identitas.namaGuru}</p>
                         <p className="truncate text-xs text-slate-500">
                           {d.identitas.mataPelajaran} · Kelas {d.identitas.kelas} · {formatTanggal(d.identitas.tanggal)}
                         </p>
@@ -216,7 +194,7 @@ export default function DashboardPage() {
                       <Link to={`/supervisi/${d.id}`} className="flex items-center gap-3 px-5 py-3 hover:bg-slate-50">
                         <TriangleAlert className={cn('size-4 shrink-0', PREDIKAT_STYLE[d.ringkasan.predikat].text)} />
                         <div className="min-w-0 flex-1">
-                          <p className="truncate text-sm font-medium text-slate-900">{d.guruNama}</p>
+                          <p className="truncate text-sm font-medium text-slate-900">{d.identitas.namaGuru}</p>
                           <p className="truncate text-xs text-slate-500">{d.identitas.mataPelajaran}</p>
                         </div>
                         <span className="text-sm font-semibold tabular-nums">{formatNilai(d.ringkasan.nilai)}</span>
@@ -227,42 +205,6 @@ export default function DashboardPage() {
               )}
             </Card>
           </div>
-
-          <Card>
-            <CardHeader
-              title="Tindak lanjut"
-              description="Rencana pendampingan dari hasil supervisi."
-              action={
-                <Link to="/tindak-lanjut" className="inline-flex items-center gap-1 text-sm font-semibold text-brand-600 hover:text-brand-700">
-                  Kelola <ArrowRight className="size-4" />
-                </Link>
-              }
-            />
-            {tindak.isError ? (
-              <p role="alert" className="px-5 py-6 text-sm text-slate-500">
-                Ringkasan tindak lanjut belum dapat dimuat.{' '}
-                <button type="button" className="font-semibold text-brand-700 underline" onClick={() => void tindak.refetch()}>Coba lagi</button>
-              </p>
-            ) : !ringkasTindak ? (
-              <p className="px-5 py-6 text-sm text-slate-500">Memuat…</p>
-            ) : ringkasTindak.total === 0 ? (
-              <p className="px-5 py-6 text-sm text-slate-500">Belum ada tindak lanjut. Buat dari halaman detail supervisi.</p>
-            ) : (
-              <dl className="grid grid-cols-2 gap-4 p-5 sm:grid-cols-4">
-                {[
-                  ['Masih berjalan', ringkasTindak.aktif, false],
-                  ['Terlambat', ringkasTindak.terlambat, true],
-                  ['Selesai', ringkasTindak.perStatus.selesai, false],
-                  ['Total', ringkasTindak.total, false],
-                ].map(([label, nilai, peringatan]) => (
-                  <div key={String(label)}>
-                    <dt className="text-sm text-slate-500">{label}</dt>
-                    <dd className={cn('mt-1 text-2xl font-bold tabular-nums', peringatan && Number(nilai) > 0 ? 'text-rose-700' : 'text-slate-900')}>{nilai}</dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-          </Card>
         </div>
       )}
     </>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { ambilSnapshot, bentukAspek, hidrasiInstrumen, INSTRUMEN_AKTIF, INSTRUMEN_LEGACY, type Instrumen } from '@/data/instrumen'
 import { hitungRingkasan } from '@/lib/scoring'
-import { dokumenKeSupervisi, supervisiKeFormInput } from './mapper'
+import { dokumenKeSupervisi } from './mapper'
 
 const identitas = {
   namaSekolah: 'SMP A',
@@ -64,61 +64,5 @@ describe('dokumenKeSupervisi — kompatibilitas data historis', () => {
     const tgl = new Date('2026-10-21T00:00:00Z')
     const s = dokumenKeSupervisi('d4', { identitas, createdBy: 'u1', createdAt: { toDate: () => tgl } })
     expect(s.createdAt).toEqual(tgl)
-  })
-})
-
-describe('dokumenKeSupervisi — metadata baru', () => {
-  it('memetakan sekolah, guru, rev, dan status hapus', () => {
-    const hapus = new Date('2026-10-22T00:00:00Z')
-    const s = dokumenKeSupervisi('d5', {
-      identitas, schoolId: 'sA', guruId: 'g1', guruNama: 'Budi', rev: 3, updatedBy: 'u2', createdBy: 'u1',
-      deletedAt: { toDate: () => hapus }, deletedBy: 'u2',
-    })
-    expect(s).toMatchObject({ schoolId: 'sA', guruId: 'g1', guruNama: 'Budi', rev: 3, updatedBy: 'u2', deletedBy: 'u2' })
-    expect(s.deletedAt).toEqual(hapus)
-  })
-
-  it('dokumen yang belum dihapus memiliki deletedAt null', () => {
-    expect(dokumenKeSupervisi('d6', { identitas, createdBy: 'u1', deletedAt: null }).deletedAt).toBeNull()
-  })
-
-  it('guruNama jatuh ke identitas.namaGuru pada dokumen lama', () => {
-    expect(dokumenKeSupervisi('d7', { identitas: { ...identitas, namaGuru: 'Budi' }, createdBy: 'u1' }).guruNama).toBe('Budi')
-  })
-})
-
-describe('supervisiKeFormInput', () => {
-  it('membuang nama sekolah dan guru (berasal dari data master) dan menyertakan guruId', () => {
-    const s = dokumenKeSupervisi('d8', { identitas, guruId: 'g1', createdBy: 'u1', skor: { A1: 3 } })
-    const f = supervisiKeFormInput(s)
-    expect(f.guruId).toBe('g1')
-    expect(f.identitas).not.toHaveProperty('namaSekolah')
-    expect(f.identitas).not.toHaveProperty('namaGuru')
-    expect(f.identitas.mataPelajaran).toBe('IPA')
-    expect(f.skor).toEqual({ A1: 3 })
-  })
-})
-
-describe('dokumenKeSupervisi — snapshot rusak tidak merusak aplikasi', () => {
-  it.each([
-    ['ambang kosong', { ...ambilSnapshot(V_LAMA), ambang: [] }],
-    ['aspek bukan array', { ...ambilSnapshot(V_LAMA), aspek: 'x' }],
-    ['bukan objek', 'rusak'],
-    ['array', []],
-  ])('%s → memakai instrumen standar dan menandai snapshotSah=false, tanpa melempar', (_n, rusak) => {
-    const s = dokumenKeSupervisi('x', { identitas, skor: { A1: 4 }, instrumen: rusak, createdBy: 'u' })
-    expect(s.snapshotSah).toBe(false)
-    expect(s.instrumen).toBe(INSTRUMEN_LEGACY)
-    expect(Number.isFinite(s.ringkasan.nilai)).toBe(true)
-  })
-
-  it('snapshot sah ditandai sah; tanpa snapshot (legacy) juga dianggap sah', () => {
-    expect(dokumenKeSupervisi('x', { identitas, instrumen: ambilSnapshot(V_LAMA), createdBy: 'u' }).snapshotSah).toBe(true)
-    expect(dokumenKeSupervisi('x', { identitas, createdBy: 'u' }).snapshotSah).toBe(true)
-  })
-
-  it('perhitungan skor tidak melempar walau ambang kosong', () => {
-    expect(() => hitungRingkasan({ Z1: 4 }, { ...V_LAMA, ambang: [] })).not.toThrow()
-    expect(hitungRingkasan({ Z1: 4 }, { ...V_LAMA, ambang: [] }).predikat).toBe('Perlu Perbaikan')
   })
 })

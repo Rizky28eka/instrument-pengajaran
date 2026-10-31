@@ -1,13 +1,11 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { FormProvider, useForm, useWatch, type Control } from 'react-hook-form'
-import { useBlocker } from 'react-router'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
 import { Check, ChevronLeft, ChevronRight, Save } from 'lucide-react'
 import type { Instrumen } from '@/data/instrumen'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
-import { ConfirmDialog } from '@/components/ui/ConfirmDialog'
 import { InstrumenNotice } from '@/components/ui/InstrumenNotice'
 import { ProgressBar } from '@/components/ui/ProgressBar'
 import { hitungRingkasan } from '@/lib/scoring'
@@ -24,14 +22,11 @@ interface Props {
   defaultValues: SupervisiFormInput
   onSubmit: (values: SupervisiFormValues) => Promise<void>
   submitLabel: string
-  /** Dipanggil setiap isian berubah — dipakai halaman "baru" untuk menyimpan draf lokal. */
-  onDraf?: (values: SupervisiFormInput) => void
-  /** Mode ubah: guru dikunci dan meninggalkan halaman dengan perubahan belum tersimpan diperingatkan. */
-  guruTetap?: { id: string; nama: string }
-  peringatiPerubahan?: boolean
+  /** Bila diisi, isian disimpan otomatis ke localStorage sebagai draf. */
+  draftKey?: string
 }
 
-export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel, onDraf, guruTetap, peringatiPerubahan }: Props) {
+export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel, draftKey }: Props) {
   const schema = useMemo(() => buatSupervisiSchema(instrumen), [instrumen])
   const daftarLangkah = useMemo(() => buatLangkah(instrumen), [instrumen])
   const form = useForm<SupervisiFormInput, unknown, SupervisiFormValues>({
@@ -40,38 +35,22 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
     mode: 'onTouched',
   })
   const [step, setStep] = useState(0)
-  const judulLangkah = useRef<HTMLHeadingElement>(null)
-  const langkahPertama = useRef(true)
   const langkah = daftarLangkah[step]
-  useEffect(() => {
-    // Pembaca layar diarahkan ke judul langkah yang baru (bukan ke tombol yang baru saja ditekan).
-    if (langkahPertama.current) langkahPertama.current = false
-    else judulLangkah.current?.focus({ preventScroll: true })
-  }, [step])
   const terakhir = step === daftarLangkah.length - 1
 
   useEffect(() => {
-    if (!onDraf) return
-    return form.subscribe({ formState: { values: true }, callback: ({ values }) => onDraf(values as SupervisiFormInput) })
-  }, [form, onDraf])
-
-  // Peringatan perubahan belum tersimpan (hanya mode ubah): navigasi dalam aplikasi dan tutup tab.
-  const { isDirty } = form.formState
-  const [selesai, setSelesai] = useState(false)
-  const perluPeringatan = !!peringatiPerubahan && isDirty && !selesai
-  const blocker = useBlocker(
-    ({ currentLocation, nextLocation }) => !!peringatiPerubahan && isDirty && currentLocation.pathname !== nextLocation.pathname,
-  )
-  // Setelah berhasil menyimpan, navigasi yang sempat tertahan diteruskan tanpa bertanya.
-  useEffect(() => {
-    if (selesai && blocker.state === 'blocked') blocker.proceed()
-  }, [selesai, blocker])
-  useEffect(() => {
-    if (!perluPeringatan) return
-    const cegah = (ev: BeforeUnloadEvent) => ev.preventDefault()
-    window.addEventListener('beforeunload', cegah)
-    return () => window.removeEventListener('beforeunload', cegah)
-  }, [perluPeringatan])
+    if (!draftKey) return
+    return form.subscribe({
+      formState: { values: true },
+      callback: ({ values }) => {
+        try {
+          localStorage.setItem(draftKey, JSON.stringify(values))
+        } catch {
+          /* penyimpanan penuh / diblokir — draf diabaikan */
+        }
+      },
+    })
+  }, [form, draftKey])
 
   function pindah(i: number) {
     setStep(i)
@@ -84,10 +63,10 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
     else toast.error('Masih ada isian yang belum lengkap pada langkah ini.')
   }
 
-  const kirim = form.handleSubmit(
+  const submit = form.handleSubmit(
     async (values) => {
       await onSubmit(values)
-      setSelesai(true) // sudah tersimpan: navigasi setelah ini tidak perlu diperingatkan
+      if (draftKey) localStorage.removeItem(draftKey)
     },
     (errors) => {
       const i = langkahDenganError(daftarLangkah, instrumen, errors)
@@ -100,16 +79,13 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
 
   return (
     <FormProvider {...form}>
-      <form
-        // Pengaman kedua: penyimpanan hanya boleh dari langkah terakhir (mis. tekan Enter di langkah lain).
-        onSubmit={(e) => (terakhir ? kirim(e) : e.preventDefault())}
-        noValidate className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
+      <form onSubmit={submit} noValidate className="grid items-start gap-6 lg:grid-cols-[minmax(0,1fr)_17rem]">
         <Card className="overflow-hidden">
           <div className="border-b border-slate-100 px-5 py-4 sm:px-6">
             <p className="text-xs font-semibold text-brand-600">
               Langkah {step + 1} dari {daftarLangkah.length}
             </p>
-            <h2 ref={judulLangkah} tabIndex={-1} className="mt-0.5 text-lg font-bold text-slate-900 outline-none">
+            <h2 className="mt-0.5 text-lg font-bold text-slate-900">
               {aspek ? `${aspek.kode}. ${aspek.judul}` : langkah.judul}
             </h2>
             {aspek && <p className="text-sm text-slate-500">{aspek.deskripsi}</p>}
@@ -118,8 +94,8 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
           </div>
 
           <div key={langkah.id} className="animate-fade-in px-5 py-6 sm:px-6">
-            {langkah.id === 'identitas' && <IdentitasStep guruTetap={guruTetap} />}
-            {aspek && <AspekStep aspek={aspek} versi={instrumen.versi} />}
+            {langkah.id === 'identitas' && <IdentitasStep />}
+            {aspek && <AspekStep aspek={aspek} />}
             {langkah.id === 'catatan' && <CatatanStep instrumen={instrumen} />}
           </div>
 
@@ -127,34 +103,17 @@ export function SupervisiForm({ instrumen, defaultValues, onSubmit, submitLabel,
             <Button variant="secondary" onClick={() => pindah(step - 1)} disabled={step === 0}>
               <ChevronLeft /> Kembali
             </Button>
-            {/*
-              `key` berbeda WAJIB: tanpa itu React memakai ulang satu elemen <button>. Saat "Lanjut" di
-              langkah terakhir diklik, elemen itu berubah menjadi type="submit" sebelum browser memproses
-              klik, sehingga form tersimpan seketika tanpa pernah menampilkan langkah catatan.
-            */}
             {terakhir ? (
-              <Button key="simpan" type="submit" loading={form.formState.isSubmitting}>
+              <Button type="submit" loading={form.formState.isSubmitting}>
                 <Save /> {submitLabel}
               </Button>
             ) : (
-              <Button key="lanjut" onClick={lanjut}>
+              <Button onClick={lanjut}>
                 Lanjut <ChevronRight />
               </Button>
             )}
           </div>
         </Card>
-
-        <ConfirmDialog
-          open={blocker.state === 'blocked' && !selesai}
-          judul="Tinggalkan halaman ini?"
-          labelYa="Tinggalkan, buang perubahan"
-          varian="danger"
-          labelBatal="Tetap di sini"
-          onYa={() => blocker.state === 'blocked' && blocker.proceed()}
-          onBatal={() => blocker.state === 'blocked' && blocker.reset()}
-        >
-          <p>Perubahan yang belum disimpan akan hilang.</p>
-        </ConfirmDialog>
 
         <PanelLangkah control={form.control} instrumen={instrumen} daftarLangkah={daftarLangkah} step={step} onPilih={pindah} />
       </form>

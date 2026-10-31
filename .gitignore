@@ -5,9 +5,3 @@ dist
 .firebase
 *.log
 .DS_Store
-firestore-debug.log
-ui-debug.log
-firebase-debug.log
-*-debug.log
-playwright-report
-test-results
