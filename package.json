@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "lint": "oxlint src",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "dev:emulator": "vite --mode emulator",
+    "emulators": "firebase emulators:start --only auth,firestore --project demo-instrumen",
+    "seed:emulator": "tsx --tsconfig tsconfig.app.json scripts/seed-emulator.ts"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
@@ -22,7 +25,8 @@
     "tailwindcss": "^4.3.3",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
-    "vitest": "^5.0.5"
+    "vitest": "^5.0.5",
+    "tsx": "^4.20.0"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.9.2",

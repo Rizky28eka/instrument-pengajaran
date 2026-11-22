@@ -1,6 +1,11 @@
 import { initializeApp } from 'firebase/app'
-import { getAuth, GoogleAuthProvider } from 'firebase/auth'
-import { initializeFirestore, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore'
+import { connectAuthEmulator, getAuth, GoogleAuthProvider } from 'firebase/auth'
+import {
+  connectFirestoreEmulator,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from 'firebase/firestore'
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -20,3 +25,9 @@ export const db = initializeFirestore(app, {
   localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
   ignoreUndefinedProperties: true,
 })
+
+// Mode emulator (`npm run dev:emulator`): semua data tinggal di mesin lokal, tanpa akun Firebase.
+if (import.meta.env.VITE_USE_EMULATORS === 'true') {
+  connectAuthEmulator(auth, 'http://127.0.0.1:9099', { disableWarnings: true })
+  connectFirestoreEmulator(db, '127.0.0.1', 8080)
+}
